@@ -78,12 +78,6 @@ class TextPrint:
         self.y = 50 * resolutionMultiplyer
         self.line_height = 80 * resolutionMultiplyer
 
-    def indent(self):
-        self.x += 100 * resolutionMultiplyer
-
-    def unindent(self):
-        self.x -= 100 * resolutionMultiplyer
-
 class button():
     def __init__(self, parentScenes, x, y, width, height, image1, image2, onclickFunction=None, onePress=False):
         self.x = x
@@ -98,12 +92,6 @@ class button():
         self.buttonRect = self.image1.get_rect()
         self.buttonRect.update((self.x, self.y),(self.width, self.height))
 
-        self.image1 = self.image1.convert_alpha()
-        self.image2 = self.image2.convert_alpha()
-
-        #self.buttonSurface1 = pygame.Surface((self.width, self.height))
-        #self.buttonSurface2 = pygame.Surface((self.width, self.height))
-
         self.alreadyPressed = False
 
         for num in range(len(parentScenes)):
@@ -113,13 +101,10 @@ class button():
 
         if mousePos == None:
             mousePos = pygame.mouse.get_pos()
-
     
         if self.buttonRect.collidepoint(mousePos) and pygame.mouse.get_pressed(num_buttons=3)[0] or FINGERdown == True:
-
             if self.onePress:
                 self.onclickFunction()
-
             elif not self.alreadyPressed:
                 self.onclickFunction()
                 self.alreadyPressed = True
@@ -221,31 +206,24 @@ while True:
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
-#        elif event.type == pygame.MOUSEBUTTONUP:     #pos, button, touch
-#            MOUSEBUTTONDOWN = False
-#        elif event.type == pygame.MOUSEBUTTONDOWN:   #pos, button, touch
-#            mousePos = event.pos
-#            MOUSEBUTTONDOWN = True
-#        elif event.type == pygame.FINGERDOWN: #touch_id, finger_id, x, y, dx, dy
-#            mousePos = (event.x, event.y)
-#            FINGERdown = True
-#        elif event.type == pygame.FINGERUP:  #touch_id, finger_id, x, y, dx, dy
-#           FINGERdown = False
+
     DISPLAYSURF.fill("#d0d0d0")
     TextPrint().reset()
 
     scene = nextScene
 
+    #renders all the buttons
     for object in scenes[scene]:
         object.process(None)
 
+    #fixes timer
     checkFixesAlarm()
-    #print(F"{timeUntilNextFix} : {60 - time.localtime().tm_sec}")
     seconds = 60 - time.localtime().tm_sec
     if seconds <= 9:
         TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
     else:
         TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
 
+    #render frame at the right time
     pygame.display.update()
     FramePerSec.tick(FPS)
