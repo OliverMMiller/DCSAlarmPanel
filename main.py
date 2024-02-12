@@ -46,7 +46,7 @@ FramePerSec = pygame.time.Clock()
 
 Alarm = None
 
-nextFix = (time.localtime().tm_min + 6)
+nextFix = time.localtime().tm_min + 6-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = nextFix - time.localtime().tm_min % 60
 timeOfNextFix = nextFix % 60
         
@@ -58,6 +58,27 @@ FINGERdown = False
 
 #
 font = pygame.font.SysFont('Arial', 50)
+
+class TextPrint:
+    def __init__(self):
+        self.reset()
+        self.font = pygame.font.Font(None, 90 * resolutionMultiplyer)
+
+    def tprint(self, screen, text):
+        text_bitmap = self.font.render(text, True, (0, 0, 0))
+        screen.blit(text_bitmap, (self.x, self.y))
+        self.y += self.line_height
+
+    def reset(self):
+        self.x = 50 * resolutionMultiplyer
+        self.y = 50 * resolutionMultiplyer
+        self.line_height = 80 * resolutionMultiplyer
+
+    def indent(self):
+        self.x += 100 * resolutionMultiplyer
+
+    def unindent(self):
+        self.x -= 100 * resolutionMultiplyer
 
 class button():
     def __init__(self, parentScenes, x, y, width, height, image1, image2, onclickFunction=None, onePress=False):
@@ -143,7 +164,7 @@ def stopAlarm():
 def resetFixesAlarm():
      #time.localtime().tm_min
      global nextFix
-     nextFix = time.localtime().tm_min + 6 + (round(time.localtime().tm_sec/60))
+     nextFix = time.localtime().tm_min + 6-1 + (round(time.localtime().tm_sec/60))
 
 def checkFixesAlarm():
     global nextFix
@@ -198,6 +219,7 @@ while True:
 #        elif event.type == pygame.FINGERUP:  #touch_id, finger_id, x, y, dx, dy
 #           FINGERdown = False
     DISPLAYSURF.fill("#d0d0d0")
+    TextPrint().reset()
 
     scene = nextScene
 
@@ -205,7 +227,12 @@ while True:
         object.process(None)
 
     checkFixesAlarm()
-    print(F"{timeUntilNextFix} : {60 - time.localtime().tm_sec}")
+    #print(F"{timeUntilNextFix} : {60 - time.localtime().tm_sec}")
+    seconds = 60 - time.localtime().tm_sec
+    if seconds <= 9:
+        TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
+    else:
+        TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
 
     pygame.display.update()
     FramePerSec.tick(FPS)
