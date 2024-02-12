@@ -38,6 +38,8 @@ image = {
 "actionred" :   pygame.image.load("images/Action-red.png").convert_alpha(),
 "actiongray" :  pygame.image.load("images/Action-Gray.png").convert_alpha(),
 "Acknowledge" : pygame.image.load("images/Acknowledge.png").convert_alpha(),
+"muted" : pygame.image.load("images/Muted.png").convert_alpha(),
+"unmuted" : pygame.image.load("images/Unmuted.png").convert_alpha(),
 }
 
 #Setting up FPS
@@ -49,6 +51,7 @@ Alarm = None
 nextFix = time.localtime().tm_min + 6-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = nextFix - time.localtime().tm_min % 60
 timeOfNextFix = nextFix % 60
+fixesAlarmMuted = True
         
 scenes = { "default" : [], "acknowledge" : []}
 scene = "default"
@@ -170,13 +173,22 @@ def checkFixesAlarm():
     global nextFix
     global timeUntilNextFix
     global timeOfNextFix
-    timeUntilNextFix = nextFix - time.localtime().tm_min % 60
-    if timeUntilNextFix <= 0:
+    if ((nextFix - time.localtime().tm_min) % 60) <= 0:
         nextFix = (time.localtime().tm_min + 6) % 60
         timeOfNextFix = nextFix % 60
-        Notify.play(loops = 1, fade_ms = 0)
+        if fixesAlarmMuted == False:
+            Notify.play(loops = 1, fade_ms = 0)
+    timeUntilNextFix = (nextFix - time.localtime().tm_min) % 60
+
+def toggleFixesAlarmMute():
+    global fixesAlarmMuted
+    fixesAlarmMuted = not fixesAlarmMuted
+    if fixesAlarmMuted:
+        FixsMuteButton.image1 = image["muted"]
+        FixsMuteButton.image2 = image["muted"]
     else:
-        timeUntilNextFix = (nextFix - time.localtime().tm_min) % 60
+        FixsMuteButton.image1 = image["unmuted"]
+        FixsMuteButton.image2 = image["unmuted"]
 
 def setAlreadyPressed():
     Acknowledge.alreadyPressed = True
@@ -191,7 +203,7 @@ alarmButtonY = SCREEN_HEIGHT/2 - alarmButtonWidth/2
 QUITbutton = button([scenes["default"], scenes["acknowledge"]], SCREEN_WIDTH - 230*resolutionMultiplyer, 30*resolutionMultiplyer, 200*resolutionMultiplyer, 100*resolutionMultiplyer, image["quit"], image["quit"], QUITfunc)
 
 resetFixTimeButton = button([scenes["default"], scenes["acknowledge"]], 30*resolutionMultiplyer, 30*resolutionMultiplyer, 200*resolutionMultiplyer, 100*resolutionMultiplyer, image["Blankblue"], image["Blankblue"], resetFixesAlarm)
-
+FixsMuteButton = button([scenes["default"], scenes["acknowledge"]], (200+30+30)*resolutionMultiplyer, 30*resolutionMultiplyer, 100*resolutionMultiplyer, 100*resolutionMultiplyer, image["muted"], image["muted"], toggleFixesAlarmMute)
 
 DCSAlarmButton = button([scenes["default"]], 30*2, alarmButtonY, alarmButtonWidth, alarmButtonWidth, image["DCSred"], image["DCSgray"], DCSAlarmFunc)
 GeneralAlarmButton = button([scenes["default"]], 30*3 + alarmButtonWidth, alarmButtonY, alarmButtonWidth, alarmButtonWidth, image["generalred"], image["generalgray"], GeneralAlarmFunc)
