@@ -49,7 +49,7 @@ FramePerSec = pygame.time.Clock()
 
 Alarm = None
 
-nextFix = time.localtime().tm_min + 6-1 + (round(time.localtime().tm_sec/60))
+nextFix = time.localtime().tm_min + 6-1-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = nextFix - time.localtime().tm_min % 60
 timeOfNextFix = nextFix % 60
 fixesAlarmMuted = True
@@ -153,14 +153,14 @@ def stopAlarm():
 def resetFixesAlarm():
      #time.localtime().tm_min
      global nextFix
-     nextFix = time.localtime().tm_min + 6-1 + (round(time.localtime().tm_sec/60))
+     nextFix = time.localtime().tm_min + 6-1-1 + (round(time.localtime().tm_sec/60))
 
 def checkFixesAlarm():
     global nextFix
     global timeUntilNextFix
     global timeOfNextFix
     if ((nextFix - time.localtime().tm_min) % 60) <= 0:
-        nextFix = (time.localtime().tm_min + 6) % 60
+        nextFix = (time.localtime().tm_min + 6-1) % 60
         timeOfNextFix = nextFix % 60
         if fixesAlarmMuted == False:
             Notify.play(loops = 1, fade_ms = 0)
