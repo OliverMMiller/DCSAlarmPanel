@@ -190,7 +190,6 @@ def toggleFixesAlarmMute():
     else:
         FixsMuteButton.image1 = image["unmuted"]
         FixsMuteButton.image2 = image["unmuted"]
-    Notify.play(loops = 1, fade_ms = 0)
 
 def setAlreadyPressed():
     Acknowledge.alreadyPressed = True
