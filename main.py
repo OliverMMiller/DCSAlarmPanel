@@ -26,6 +26,7 @@ DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
 GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
 HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 Notify = pygame.mixer.Sound("sound/Notify.wav")
+Notify.set_volume(0.08)
 
 #images
 image = {
@@ -189,6 +190,7 @@ def toggleFixesAlarmMute():
     else:
         FixsMuteButton.image1 = image["unmuted"]
         FixsMuteButton.image2 = image["unmuted"]
+    Notify.play(loops = 1, fade_ms = 0)
 
 def setAlreadyPressed():
     Acknowledge.alreadyPressed = True
