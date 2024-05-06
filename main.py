@@ -48,7 +48,7 @@ FPS = 60
 FramePerSec = pygame.time.Clock()
 
 Alarm = None
-AlarmTime = 1#Mins
+AlarmTime = 6#Mins
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
