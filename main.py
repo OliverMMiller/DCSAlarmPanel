@@ -44,11 +44,11 @@ image = {
 }
 
 #Setting up FPS
-FPS = 30
+FPS = 60
 FramePerSec = pygame.time.Clock()
 
 Alarm = None
-AlarmTime = 6#Mins
+AlarmTime = 1#Mins
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
@@ -154,14 +154,14 @@ def stopAlarm():
 def resetFixesAlarm():
      #time.localtime().tm_min
      global nextFix
-     nextFix = (time.localtime().tm_min + AlarmTime-1 + (round((time.localtime().tm_sec+2)/60))) % 60
+     nextFix = (time.localtime().tm_min + max(AlarmTime-1,0) + (round((time.localtime().tm_sec+2)/60))) % 60
 
 def checkFixesAlarm():
     global nextFix
     global timeUntilNextFix
     #global timeOfNextFix
     mins = time.localtime().tm_min
-    if (mins > nextFix) :
+    if (nextFix - mins < 0) :
         nextFix = (mins + max(AlarmTime - 1, 0)) % 60
         #timeOfNextFix = nextFix % 60
         if fixesAlarmMuted == False:
