@@ -48,7 +48,7 @@ FPS = 60
 FramePerSec = pygame.time.Clock()
 
 Alarm = None
-AlarmTime = 6#Mins
+AlarmTime = 2#Mins
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
@@ -161,12 +161,14 @@ def checkFixesAlarm():
     global timeUntilNextFix
     #global timeOfNextFix
     mins = time.localtime().tm_min
-    if timeUntilNextFix  == 0 and time.localtime().tm_sec ==1:
-        nextFix = (mins + AlarmTime-1) % 60
+    timeUntilNextFix = (nextFix - mins) #% 60  # Calculate timeUntilNextFix ##(60 - mins + nextFix)
+    if timeUntilNextFix  <= -1:#and time.localtime().tm_sec == 0
+        #resetFixesAlarm()
+        nextFix = (mins + AlarmTime -1) % 60
         #timeOfNextFix = nextFix % 60
         if fixesAlarmMuted == False:
             Notify.play(loops = 1, fade_ms = 0)
-    timeUntilNextFix = (60 - mins + nextFix) % 60
+        timeUntilNextFix = AlarmTime-1# Recalculate timeUntilNextFix 
 
 def toggleFixesAlarmMute():
     global fixesAlarmMuted
