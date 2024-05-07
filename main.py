@@ -48,7 +48,8 @@ FPS = 60
 FramePerSec = pygame.time.Clock()
 
 Alarm = None
-AlarmTime = 1#Mins
+AlarmTime = 6#Mins
+ResetNext = False
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
@@ -156,19 +157,35 @@ def resetFixesAlarm(): # runs when the fixes timer button is pressed
      global nextFix
      nextFix = (time.localtime().tm_min + max(AlarmTime-1,0) + (round((time.localtime().tm_sec+2)/60))) % 60
 
+# def checkFixesAlarm(): # runs each frame
+#     global nextFix
+#     global timeUntilNextFix
+#     #global timeOfNextFix
+#     mins = time.localtime().tm_min
+#     if (nextFix - mins < 0) and (nextFix - mins > -60+AlarmTime): #checks if timer needs to be reset
+#         newNextFix = (mins + max(AlarmTime - 1, 0)) % 60
+#         if newNextFix >= mins: #if timer actually needs to be reset
+#             nextFix = newNextFix
+#             #timeOfNextFix = nextFix % 60
+#             if fixesAlarmMuted == False:
+#                 Notify.play(loops = 1, fade_ms = 0)
+#     timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
 def checkFixesAlarm(): # runs each frame
     global nextFix
     global timeUntilNextFix
+    global ResetNext
     #global timeOfNextFix
     mins = time.localtime().tm_min
-    if (nextFix - mins < 0) and (nextFix - mins > -60+AlarmTime): #checks if timer needs to be reset
-        newNextFix = (mins + max(AlarmTime - 1, 0)) % 60
-        if newNextFix >= mins: #if timer actually needs to be reset
-            nextFix = newNextFix
-            #timeOfNextFix = nextFix % 60
-            if fixesAlarmMuted == False:
-                Notify.play(loops = 1, fade_ms = 0)
+    if timeUntilNextFix == 0 and time.localtime().tm_sec == 59:
+        ResetNext = True
+    elif ResetNext and time.localtime().tm_sec == 0: #checks if timer needs to be reset
+        ResetNext = False
+        nextFix = (mins + max(AlarmTime - 1, 0)) % 60
+        #timeOfNextFix = nextFix % 60
+        if fixesAlarmMuted == False:
+            Notify.play(loops = 1, fade_ms = 0)
     timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
+
 
 def toggleFixesAlarmMute(): # runs when mute button is pressed
     global fixesAlarmMuted
