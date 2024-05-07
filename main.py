@@ -48,7 +48,7 @@ FPS = 60
 FramePerSec = pygame.time.Clock()
 
 Alarm = None
-AlarmTime = 6#Mins
+AlarmTime = 1#Mins
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
@@ -116,26 +116,27 @@ class button():
             self.alreadyPressed = False
             DISPLAYSURF.blit(self.image2, self.buttonRect)
 
-#
-def QUITfunc():
+#define functions
+def QUITfunc(): # runs when "Quit" button is pressed
+    #ends program 
     pygame.quit()
     sys.exit()
 
-def DCSAlarmFunc():
+def DCSAlarmFunc(): # runs when corresponding button is pressed
   DCSAlarm.play(loops = 8, fade_ms = 100)
   global Alarm
   Alarm = DCSAlarm
   global nextScene
   nextScene = "acknowledge"
   setAlreadyPressed()
-def GeneralAlarmFunc():
+def GeneralAlarmFunc(): # runs when corresponding button is pressed
   GeneralAlarm.play(loops = 8, fade_ms = 100)
   global Alarm
   Alarm = GeneralAlarm
   global nextScene
   nextScene = "acknowledge"
   setAlreadyPressed()
-def HalifaxActionAlarmFunc():
+def HalifaxActionAlarmFunc(): # runs when corresponding button is pressed
   HalifaxActionAlarm.play(loops = 8, fade_ms = 100)
   global Alarm
   Alarm = HalifaxActionAlarm
@@ -143,32 +144,33 @@ def HalifaxActionAlarmFunc():
   nextScene = "acknowledge"
   setAlreadyPressed()
 
-def stopAlarm():
+def stopAlarm(): 
   global Alarm
-  Alarm.stop()
+  Alarm.stop() # stops audio
   Alarm = None
   global nextScene
   nextScene = "default"
   setAlreadyPressed()
 
-def resetFixesAlarm():
-     #time.localtime().tm_min
+def resetFixesAlarm(): # runs when the fixes timer button is pressed
      global nextFix
      nextFix = (time.localtime().tm_min + max(AlarmTime-1,0) + (round((time.localtime().tm_sec+2)/60))) % 60
 
-def checkFixesAlarm():
+def checkFixesAlarm(): # runs each frame
     global nextFix
     global timeUntilNextFix
     #global timeOfNextFix
     mins = time.localtime().tm_min
-    if (nextFix - mins < 0) :
-        nextFix = (mins + max(AlarmTime - 1, 0)) % 60
-        #timeOfNextFix = nextFix % 60
-        if fixesAlarmMuted == False:
-            Notify.play(loops = 1, fade_ms = 0)
+    if (nextFix - mins < 0) and (nextFix - mins > -60+AlarmTime): #checks if timer needs to be reset
+        newNextFix = (mins + max(AlarmTime - 1, 0)) % 60
+        if newNextFix >= mins: #if timer actually needs to be reset
+            nextFix = newNextFix
+            #timeOfNextFix = nextFix % 60
+            if fixesAlarmMuted == False:
+                Notify.play(loops = 1, fade_ms = 0)
     timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
 
-def toggleFixesAlarmMute():
+def toggleFixesAlarmMute(): # runs when mute button is pressed
     global fixesAlarmMuted
     fixesAlarmMuted = not fixesAlarmMuted
     if fixesAlarmMuted:
@@ -178,13 +180,14 @@ def toggleFixesAlarmMute():
         FixsMuteButton.image1 = image["unmuted"]
         FixsMuteButton.image2 = image["unmuted"]
 
-def setAlreadyPressed():
+def setAlreadyPressed(): # used to prevent double activations on one click
     Acknowledge.alreadyPressed = True
     DCSAlarmButton.alreadyPressed = True
     GeneralAlarmButton.alreadyPressed = True
     HalifaxActionAlarmButton.alreadyPressed = True
     resetFixTimeButton.alreadyPressed = True
 
+#create button objects
 alarmButtonWidth = (SCREEN_WIDTH/3 - 2*30)
 alarmButtonY = SCREEN_HEIGHT/2 - alarmButtonWidth/2
 
@@ -203,13 +206,13 @@ setAlreadyPressed()
 
 pygame.event.set_allowed(QUIT,)#control which events are allowed on the queue
 
-while True:
+while True: # main controll loop
     for event in pygame.event.get():
-        if event.type == QUIT:
+        if event.type == QUIT: # if program exited then end program
             pygame.quit()
             sys.exit()
 
-    DISPLAYSURF.fill("#d0d0d0")
+    DISPLAYSURF.fill("#d0d0d0") # set background colour
     TextPrint().reset()
 
     scene = nextScene
@@ -218,7 +221,7 @@ while True:
     for object in scenes[scene]:
         object.process(None)
 
-    #fixes timer
+    #updates timer
     checkFixesAlarm()
     seconds = 60 - time.localtime().tm_sec -1
     if seconds <= 9:
