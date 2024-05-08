@@ -16,7 +16,7 @@ WHITE = (255, 255, 255)
 resolutionMultiplyer = 5
 SCREEN_WIDTH = 1080 * resolutionMultiplyer
 SCREEN_HEIGHT = 720 * resolutionMultiplyer
-DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED | pygame.RESIZABLE))
+DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED)) # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
 DISPLAYSURF.fill(WHITE)
 
@@ -53,7 +53,6 @@ ResetNext = False
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
-#timeOfNextFix = nextFix % 60
 fixesAlarmMuted = True
         
 scenes = { "default" : [], "acknowledge" : []}
@@ -157,33 +156,20 @@ def resetFixesAlarm(): # runs when the fixes timer button is pressed
      global nextFix
      nextFix = (time.localtime().tm_min + max(AlarmTime-1,0) + (round((time.localtime().tm_sec+2)/60))) % 60
 
-# def checkFixesAlarm(): # runs each frame
-#     global nextFix
-#     global timeUntilNextFix
-#     #global timeOfNextFix
-#     mins = time.localtime().tm_min
-#     if (nextFix - mins < 0) and (nextFix - mins > -60+AlarmTime): #checks if timer needs to be reset
-#         newNextFix = (mins + max(AlarmTime - 1, 0)) % 60
-#         if newNextFix >= mins: #if timer actually needs to be reset
-#             nextFix = newNextFix
-#             #timeOfNextFix = nextFix % 60
-#             if fixesAlarmMuted == False:
-#                 Notify.play(loops = 1, fade_ms = 0)
-#     timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
 def checkFixesAlarm(): # runs each frame
     global nextFix
     global timeUntilNextFix
     global ResetNext
-    #global timeOfNextFix
     mins = time.localtime().tm_min
     if timeUntilNextFix == 0 and time.localtime().tm_sec == 59:
         ResetNext = True
     elif ResetNext and time.localtime().tm_sec == 0: #checks if timer needs to be reset
         ResetNext = False
         nextFix = (mins + max(AlarmTime - 1, 0)) % 60
-        #timeOfNextFix = nextFix % 60
         if fixesAlarmMuted == False:
             Notify.play(loops = 1, fade_ms = 0)
+    elif timeUntilNextFix > AlarmTime:
+        resetFixesAlarm()
     timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
 
 
@@ -221,13 +207,22 @@ Acksize = (60*1.7*resolutionMultiplyer, 80*1.7*resolutionMultiplyer)
 Acknowledge = button([scenes["acknowledge"]], Acksize[0], Acksize[1], SCREEN_WIDTH-(Acksize[0]*2), SCREEN_HEIGHT-(Acksize[1]*2), image["Acknowledge"], image["Acknowledge"], stopAlarm)
 setAlreadyPressed()
 
-pygame.event.set_allowed(QUIT,)#control which events are allowed on the queue
+pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST))#control which events are allowed on the queue
 
 while True: # main controll loop
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
             pygame.quit()
             sys.exit()
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            pygame.quit()
+            sys.exit()
+        elif event.type == pygame.WINDOWFOCUSGAINED:
+            FPS = 60
+        elif event.type == pygame.WINDOWFOCUSLOST:
+            FPS = 2
+        elif event.type == pygame.WINDOWCLOSE:
+            print("----------------------")
 
     DISPLAYSURF.fill("#d0d0d0") # set background colour
     TextPrint().reset()
@@ -245,6 +240,9 @@ while True: # main controll loop
         TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
     else:
         TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
+
+    #if timeUntilNextFix > AlarmTime:
+    #    print( F"ERROR: timeUntilNextFix:{timeUntilNextFix} : {seconds}   @ time: {time.localtime().tm_min}:{time.localtime().tm_sec}   nextFix: {nextFix}")
 
     #render frame at the right time
     pygame.display.update()
