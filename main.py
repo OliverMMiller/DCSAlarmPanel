@@ -13,18 +13,23 @@ pygame.mixer.init()
 WHITE = (255, 255, 255)
 
 #seting up screen
-resolutionMultiplyer = 5
+resolutionMultiplyer = 3
 SCREEN_WIDTH = 1080 * resolutionMultiplyer
 SCREEN_HEIGHT = 720 * resolutionMultiplyer
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED)) # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
-DISPLAYSURF.fill(WHITE)
+#DISPLAYSURF.fill(WHITE)
 
 #seting up mixer
 pygame.mixer.music.set_volume(1.00)
-DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
-GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
-HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
+if False: #True for original alarms,  #False for "corected" alarms
+    DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
+    GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
+    HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
+else:
+    HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
+    DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
+    GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.08)
 
@@ -177,11 +182,11 @@ def toggleFixesAlarmMute(): # runs when mute button is pressed
     global fixesAlarmMuted
     fixesAlarmMuted = not fixesAlarmMuted
     if fixesAlarmMuted:
-        FixsMuteButton.image1 = image["muted"]
-        FixsMuteButton.image2 = image["muted"]
+        FixsMuteButton.image1 = pygame.transform.scale((image["muted"]),(FixsMuteButton.width, FixsMuteButton.height))
+        FixsMuteButton.image2 = pygame.transform.scale((image["muted"]),(FixsMuteButton.width, FixsMuteButton.height))
     else:
-        FixsMuteButton.image1 = image["unmuted"]
-        FixsMuteButton.image2 = image["unmuted"]
+        FixsMuteButton.image1 = pygame.transform.scale((image["unmuted"]),(FixsMuteButton.width, FixsMuteButton.height))
+        FixsMuteButton.image2 = pygame.transform.scale((image["unmuted"]),(FixsMuteButton.width, FixsMuteButton.height))
 
 def setAlreadyPressed(): # used to prevent double activations on one click
     Acknowledge.alreadyPressed = True
