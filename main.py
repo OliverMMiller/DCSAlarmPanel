@@ -46,6 +46,8 @@ image = {
 "Acknowledge" : pygame.image.load("images/Acknowledge.png").convert_alpha(),
 "muted" : pygame.image.load("images/Muted.png").convert_alpha(),
 "unmuted" : pygame.image.load("images/Unmuted.png").convert_alpha(),
+"toggleNightMode" : pygame.image.load("images/ToggleDayMode.png").convert_alpha(),
+"toggleDayMode" : pygame.image.load("images/ToggleNightMode.png").convert_alpha(),
 }
 
 #Setting up FPS
@@ -55,6 +57,8 @@ FramePerSec = pygame.time.Clock()
 Alarm = None
 AlarmTime = 6#Mins
 ResetNext = False
+
+nightMode = False
 
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
@@ -126,6 +130,16 @@ def QUITfunc(): # runs when "Quit" button is pressed
     #ends program 
     pygame.quit()
     sys.exit()
+
+def toggleNightMode():
+    global nightMode
+    nightMode = not nightMode
+    if nightMode:
+        toggleNightModeButton.image1 = pygame.transform.scale((image["toggleNightMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
+        toggleNightModeButton.image2 = pygame.transform.scale((image["toggleNightMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
+    else:
+        toggleNightModeButton.image1 = pygame.transform.scale((image["toggleDayMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
+        toggleNightModeButton.image2 = pygame.transform.scale((image["toggleDayMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
 
 def DCSAlarmFunc(): # runs when corresponding button is pressed
   DCSAlarm.play(loops = 8, fade_ms = 100)
@@ -212,25 +226,30 @@ Acksize = (60*1.7*resolutionMultiplyer, 80*1.7*resolutionMultiplyer)
 Acknowledge = button([scenes["acknowledge"]], Acksize[0], Acksize[1], SCREEN_WIDTH-(Acksize[0]*2), SCREEN_HEIGHT-(Acksize[1]*2), image["Acknowledge"], image["Acknowledge"], stopAlarm)
 setAlreadyPressed()
 
+#toggleNightModeButton = button([scenes["default"], scenes["acknowledge"]], (SCREEN_WIDTH-30-150)*resolutionMultiplyer, (SCREEN_HEIGHT-30-150)*resolutionMultiplyer, 100*resolutionMultiplyer, 100*resolutionMultiplyer, image["toggleDayMode"], image["toggleDayMode"], toggleNightMode)
+toggleNightModeButton = button([scenes["default"], scenes["acknowledge"]], (1080-190)*resolutionMultiplyer, (720-170)*resolutionMultiplyer, 150*resolutionMultiplyer, 150*resolutionMultiplyer, image["toggleDayMode"], image["toggleDayMode"], toggleNightMode)
+
 pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST))#control which events are allowed on the queue
 
 while True: # main controll loop
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
-            pygame.quit()
-            sys.exit()
+            QUITfunc()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            pygame.quit()
-            sys.exit()
+            QUITfunc()
         elif event.type == pygame.WINDOWFOCUSGAINED:
             FPS = 60
         elif event.type == pygame.WINDOWFOCUSLOST:
             FPS = 2
         elif event.type == pygame.WINDOWCLOSE:
-            print("----------------------")
+            #print("----------------------")
+            QUITfunc()
 
-    DISPLAYSURF.fill("#d0d0d0") # set background colour
     TextPrint().reset()
+    if nightMode:
+        DISPLAYSURF.fill("#202525") # set background colour
+    else:
+        DISPLAYSURF.fill("#d0d0d0") # set background colour
 
     scene = nextScene
 
@@ -248,6 +267,8 @@ while True: # main controll loop
 
     #if timeUntilNextFix > AlarmTime:
     #    print( F"ERROR: timeUntilNextFix:{timeUntilNextFix} : {seconds}   @ time: {time.localtime().tm_min}:{time.localtime().tm_sec}   nextFix: {nextFix}")
+
+    #print(toggleNightModeButton.height)
 
     #render frame at the right time
     pygame.display.update()
