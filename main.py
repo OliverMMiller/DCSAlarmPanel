@@ -1,11 +1,14 @@
+#print("started")
+
 #imports
 import sys
 import pygame
 import time
-import pygame._sdl2.touch
+#import pygame._sdl2.touch
 from pygame.locals import QUIT
 
 #Initialzing pygame and mixer
+pygame.mixer.pre_init(frequency=48000, buffer=2048)
 pygame.init()
 pygame.mixer.init()
 
@@ -53,9 +56,12 @@ image = {
 #Setting up FPS
 FPS = 60
 FramePerSec = pygame.time.Clock()
+alarmTimeFPS = 5
+alarmTimeCounter = 0
+displayFPSInfo = True
 
 Alarm = None
-AlarmTime = 6#Mins
+AlarmTime = 6 #Mins
 ResetNext = False
 
 nightMode = False
@@ -63,7 +69,7 @@ nightMode = False
 nextFix = time.localtime().tm_min + AlarmTime-1 + (round(time.localtime().tm_sec/60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60 #(nextFix - time.localtime().tm_min) % 60
 fixesAlarmMuted = True
-        
+       
 scenes = { "default" : [], "acknowledge" : []}
 scene = "default"
 nextScene = "default"
@@ -71,17 +77,18 @@ nextScene = "default"
 FINGERdown = False
 
 #
-font = pygame.font.SysFont('Arial', 50)
+myfont = pygame.font.SysFont('Arial', 50)
 
 class TextPrint:
     def __init__(self):
         self.reset()
-        self.font = pygame.font.Font(None, 90 * resolutionMultiplyer)
+        self.font1 = pygame.font.Font(None, 90 * resolutionMultiplyer)
 
-    def tprint(self, screen, text):
-        text_bitmap = self.font.render(text, True, (0, 0, 0))
+    def tprint(self, screen, text, moveDown = False):
+        text_bitmap = self.font1.render(text, True, (0, 0, 0))
         screen.blit(text_bitmap, (self.x, self.y))
-        self.y += self.line_height
+        if moveDown:
+            self.y += self.line_height
 
     def reset(self):
         self.x = 50 * resolutionMultiplyer
@@ -111,7 +118,7 @@ class button():
 
         if mousePos == None:
             mousePos = pygame.mouse.get_pos()
-    
+   
         if self.buttonRect.collidepoint(mousePos) and pygame.mouse.get_pressed(num_buttons=3)[0] or FINGERdown == True:
             if self.onePress:
                 self.onclickFunction()
@@ -127,7 +134,7 @@ class button():
 
 #define functions
 def QUITfunc(): # runs when "Quit" button is pressed
-    #ends program 
+    #ends program
     pygame.quit()
     sys.exit()
 
@@ -163,7 +170,7 @@ def HalifaxActionAlarmFunc(): # runs when corresponding button is pressed
   nextScene = "acknowledge"
   setAlreadyPressed()
 
-def stopAlarm(): 
+def stopAlarm():
   global Alarm
   Alarm.stop() # stops audio
   Alarm = None
@@ -231,6 +238,18 @@ toggleNightModeButton = button([scenes["default"], scenes["acknowledge"]], (1080
 
 pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST))#control which events are allowed on the queue
 
+#setup TPrint stuff
+fixesAlarmPrinter = TextPrint()
+fixesAlarmPrinter.reset()
+FPSPrinter = TextPrint()
+FPSPrinter.reset()
+FPSPrinter.font1 = pygame.font.Font(None, 20 * resolutionMultiplyer)
+FPSPrinter.x = 10 * resolutionMultiplyer
+FPSPrinter.y = 10 * resolutionMultiplyer
+#FPSPrinter.line_height = 80 * resolutionMultiplyer
+
+print("starting loop")
+
 while True: # main controll loop
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
@@ -242,10 +261,12 @@ while True: # main controll loop
         elif event.type == pygame.WINDOWFOCUSLOST:
             FPS = 2
         elif event.type == pygame.WINDOWCLOSE:
-            #print("----------------------")
+            #print("WINDOWCLOSE event dected - quiting...")
             QUITfunc()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            #displayFPSInfo ^= 1
+            displayFPSInfo = not event.touch
 
-    TextPrint().reset()
     if nightMode:
         DISPLAYSURF.fill("#202525") # set background colour
     else:
@@ -257,18 +278,27 @@ while True: # main controll loop
     for object in scenes[scene]:
         object.process(None)
 
-    #updates timer
-    checkFixesAlarm()
+    #updates fixes alarm time values every few frames
+    if alarmTimeCounter >= FPS / alarmTimeFPS:
+        alarmTimeCounter = 0
+        checkFixesAlarm()
+    else:
+        alarmTimeCounter += 1
+    #render fixes alarm time
     seconds = 60 - time.localtime().tm_sec -1
     if seconds <= 9:
-        TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
+        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
     else:
-        TextPrint().tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
+        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
 
     #if timeUntilNextFix > AlarmTime:
     #    print( F"ERROR: timeUntilNextFix:{timeUntilNextFix} : {seconds}   @ time: {time.localtime().tm_min}:{time.localtime().tm_sec}   nextFix: {nextFix}")
 
-    #print(toggleNightModeButton.height)
+    #print("running!")
+   
+    if displayFPSInfo:
+        FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(),1)} ")
+        FPSPrinter.tprint(DISPLAYSURF, F"                     mspt:{FramePerSec.get_time()} ")
 
     #render frame at the right time
     pygame.display.update()
