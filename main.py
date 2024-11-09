@@ -34,7 +34,7 @@ else:
     DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
     GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 Notify = pygame.mixer.Sound("sound/Notify.wav")
-Notify.set_volume(0.08)
+Notify.set_volume(0.5)
 
 #images
 image = {
