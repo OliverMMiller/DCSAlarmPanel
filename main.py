@@ -4,7 +4,7 @@ import pygame
 import time
 from pygame.locals import QUIT
 
-from OliversButtonModule import button as button
+from OliversButtonModuleV2 import button as button
 
 #initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
@@ -244,6 +244,11 @@ pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFO
 #print("starting loop")
 
 while True: # main control loop
+    buttonsInScene: list = []
+    for object in scenes[scene]:
+        if object.__class__ is button:
+            buttonsInScene.append(object)
+
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
             quitFunc()
@@ -275,7 +280,12 @@ while True: # main control loop
                 scenes["default"].insert(0,quitButton)
                 scenes["acknowledge"].insert(0,quitButton)
                 quitButton.ignoreNextPress = True      
+                
             
+            for thisButton in buttonsInScene:
+                if thisButton.buttonRect.collidepoint(event.pos):
+                    thisButton.runOnclickFunction = True
+                    buttonsInScene.remove(thisButton)
             
                 
             
