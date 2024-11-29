@@ -4,7 +4,7 @@ import pygame
 import time
 from pygame.locals import QUIT
 
-from OliversButtonModuleV2 import button as button
+from OliversButtonModule import button as button
 
 #initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
@@ -20,7 +20,6 @@ SCREEN_WIDTH = 1080 * resolutionMultiplier
 SCREEN_HEIGHT = 720 * resolutionMultiplier
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED)) # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
-#DISPLAYSURF.fill(WHITE)
 
 #setting up mixer
 pygame.mixer.music.set_volume(1.00)
@@ -96,7 +95,7 @@ class alarmObj():
     def playAlarm(self) -> None:
         global currentAlarm
         if currentAlarm == None:
-            self.alarmSound.play(loops = 5, fade_ms = 100)
+            self.alarmSound.play(loops = 0, maxtime = (10**4), fade_ms = 0)
             global nextScene
             currentAlarm = self
             nextScene = "acknowledge"
@@ -192,21 +191,21 @@ DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]],
                         30*2, alarmButtonY, 
                         alarmButtonWidth, alarmButtonWidth,
                         defaultImage = pygame.image.load("images/DCS-red.png").convert_alpha(),
-                        clickedImage = pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
+                        hoverImage = pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
                         onclickFunction = DCSAlarmObj.playAlarm)
 
 GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                             30*3 + alarmButtonWidth, alarmButtonY, 
                             alarmButtonWidth, alarmButtonWidth, 
                             defaultImage = pygame.image.load("images/General-red.png").convert_alpha(),
-                            clickedImage = pygame.image.load("images/General-Gray.png").convert_alpha(),
+                            hoverImage = pygame.image.load("images/General-Gray.png").convert_alpha(),
                             onclickFunction = GeneralAlarmObj.playAlarm)
 
 HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                                   30*4 + alarmButtonWidth*2, alarmButtonY, 
                                   alarmButtonWidth, alarmButtonWidth,
                                   defaultImage = pygame.image.load("images/Action-red.png").convert_alpha(),
-                                  clickedImage = pygame.image.load("images/Action-Gray.png").convert_alpha(),
+                                  hoverImage = pygame.image.load("images/Action-Gray.png").convert_alpha(),
                                   onclickFunction = HalifaxActionAlarmObj.playAlarm)
 
 acknowledgeSize: tuple[float,float] = (60*1.7*resolutionMultiplier, 80*1.7*resolutionMultiplier)
