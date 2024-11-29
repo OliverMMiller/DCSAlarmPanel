@@ -1,11 +1,10 @@
-#print("started")
-
 #imports
 import sys
 import pygame
 import time
-#import pygame._sdl2.touch
 from pygame.locals import QUIT
+
+from OliversButtonModuleV2 import button as button
 
 #initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
@@ -25,28 +24,22 @@ pygame.display.set_caption('DCS Alarm Panel')
 
 #setting up mixer
 pygame.mixer.music.set_volume(1.00)
-if False: #True for original alarms,  #False for "corrected" alarms
-    DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
-    GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
-    HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
-else:
-    HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
-    DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
-    GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
+
+# original alarms:
+# DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
+# GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
+# HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
+
+# "corrected" alarms:
+HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
+DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
+GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
+
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.5)
 
 #images
 image = {
-"quit" :        pygame.image.load("images/Quit.png").convert_alpha(),
-"blankBlue" :   pygame.image.load("images/Blank-Blue.png").convert_alpha(),
-"DCSred" :      pygame.image.load("images/DCS-red.png").convert_alpha(),
-"DCSgray" :     pygame.image.load("images/DCS-Gray.png").convert_alpha(),
-"generalRed" :  pygame.image.load("images/General-red.png").convert_alpha(),
-"generalGray" : pygame.image.load("images/General-Gray.png").convert_alpha(),
-"actionRed" :   pygame.image.load("images/Action-red.png").convert_alpha(),
-"actionGray" :  pygame.image.load("images/Action-Gray.png").convert_alpha(),
-"Acknowledge" : pygame.image.load("images/Acknowledge.png").convert_alpha(),
 "muted" : pygame.image.load("images/Muted.png").convert_alpha(),
 "unmuted" : pygame.image.load("images/Unmuted.png").convert_alpha(),
 "toggleNightMode" : pygame.image.load("images/ToggleDayMode.png").convert_alpha(),
@@ -95,46 +88,6 @@ class TextPrint:
         self.y = 50 * resolutionMultiplier
         self.line_height = 80 * resolutionMultiplier
 
-class button():
-    def __init__(self, parentScenes, x, y, width, height, image1, image2, onclickFunction=None, onePress=True):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.onclickFunction = onclickFunction
-        self.onePress = onePress
-
-        self.image1 = pygame.transform.scale((image1),(self.width, self.height))
-        self.image2 = pygame.transform.scale((image2),(self.width, self.height))
-        self.buttonRect = self.image1.get_rect()
-        self.buttonRect.update((self.x, self.y),(self.width, self.height))
-
-        self.alreadyPressed = False
-
-        for num in range(len(parentScenes)):
-            parentScenes[num].insert(0,self)
-
-    def __repr__(self):
-        return self.onclickFunction.__repr__()
-    
-    def process(self, mousePos) -> None:
-
-        if mousePos == None:
-            mousePos = pygame.mouse.get_pos()
-   
-        if self.buttonRect.collidepoint(mousePos) and pygame.mouse.get_pressed(num_buttons=3)[0] or FINGERdown == True:
-            if not self.onePress:
-                self.onclickFunction()
-            elif not self.alreadyPressed:
-                self.onclickFunction()
-                self.alreadyPressed = True
-
-            DISPLAYSURF.blit(self.image1, self.buttonRect)
-
-        else:
-            self.alreadyPressed = False
-            DISPLAYSURF.blit(self.image2, self.buttonRect)
-
 class alarmObj():
     def __init__(self, alarmButton: button, alarmSound: pygame.mixer.Sound) -> None:
         self.alarmButton = alarmButton
@@ -147,7 +100,7 @@ class alarmObj():
             global nextScene
             currentAlarm = self
             nextScene = "acknowledge"
-            self.alarmButton.alreadyPressed = True
+            self.alarmButton.alreadyPressed = True   
         
 def stopAlarm() -> None:
     global currentAlarm
@@ -156,7 +109,7 @@ def stopAlarm() -> None:
         currentAlarm = None
         global nextScene
         nextScene = "default"
-        setAlreadyPressed()
+        setIgnoreNextPress()
 
 
 currentAlarm: alarmObj | None
@@ -166,20 +119,17 @@ GeneralAlarmObj = alarmObj(None, GeneralAlarm)
 HalifaxActionAlarmObj = alarmObj(None, HalifaxActionAlarm)
 
 #define functions
-def QUITfunc() -> None: # runs when "Quit" button is pressed
+def quitFunc() -> None: # runs when "Quit" button is pressed
     #ends program
     pygame.quit()
     sys.exit()
 
 def toggleNightMode() -> None:
     global nightMode
-    nightMode = not nightMode
-    if nightMode:
-        toggleNightModeButton.image1 = pygame.transform.scale((image["toggleNightMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
-        toggleNightModeButton.image2 = toggleNightModeButton.image1.copy()
+    if nightMode := not nightMode:
+        toggleNightModeButton.updateImages(image["toggleNightMode"])
     else:
-        toggleNightModeButton.image1 = pygame.transform.scale((image["toggleDayMode"]),(toggleNightModeButton.width, toggleNightModeButton.height))
-        toggleNightModeButton.image2 = toggleNightModeButton.image1.copy()
+        toggleNightModeButton.updateImages(image["toggleDayMode"])
 
 def resetFixesAlarm() -> None: # runs when the fixes timer button is pressed
      global nextFix
@@ -204,40 +154,75 @@ def checkFixesAlarm() -> None: # runs each frame
 
 def toggleFixesAlarmMute() -> None: # runs when mute button is pressed
     global fixesAlarmMuted
-    fixesAlarmMuted = not fixesAlarmMuted
-    if fixesAlarmMuted:
-        fixesMuteButton.image1 = pygame.transform.scale((image["muted"]),(fixesMuteButton.width, fixesMuteButton.height))
-        fixesMuteButton.image2 = fixesMuteButton.image1.copy()
+    if fixesAlarmMuted := not fixesAlarmMuted:
+        fixesMuteButton.updateImages(image["muted"])
     else:
-        fixesMuteButton.image1 = pygame.transform.scale((image["unmuted"]),(fixesMuteButton.width, fixesMuteButton.height))
-        fixesMuteButton.image2 = fixesMuteButton.image1.copy()
+        fixesMuteButton.updateImages(image["unmuted"])
 
-def setAlreadyPressed() -> None: # used to prevent double activations on one click
-    Acknowledge.alreadyPressed = True
-    DCSAlarmButton.alreadyPressed = True
-    GeneralAlarmButton.alreadyPressed = True
-    HalifaxActionAlarmButton.alreadyPressed = True
-    resetFixTimeButton.alreadyPressed = True
+
+def setIgnoreNextPress() -> None: # used to prevent double activations on one click
+    Acknowledge.ignoreNextPress = True
+    DCSAlarmButton.ignoreNextPress = True
+    GeneralAlarmButton.ignoreNextPress = True
+    HalifaxActionAlarmButton.ignoreNextPress = True
+    resetFixTimeButton.ignoreNextPress = True
 
 #create button objects
 alarmButtonWidth = (SCREEN_WIDTH/3 - 2*30)
 alarmButtonY = SCREEN_HEIGHT/2 - alarmButtonWidth/2
 
-QUITbutton = button([], SCREEN_WIDTH - 230*resolutionMultiplier, 30*resolutionMultiplier, 200*resolutionMultiplier, 100*resolutionMultiplier, image["quit"], image["quit"], QUITfunc)
+quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230*resolutionMultiplier, 30*resolutionMultiplier, 
+                    200*resolutionMultiplier, 100*resolutionMultiplier, 
+                    defaultImage = pygame.image.load("images/Quit.png").convert_alpha(), 
+                    onclickFunction = quitFunc)
 
-resetFixTimeButton = button([scenes["default"], scenes["acknowledge"]], 30*resolutionMultiplier, 30*resolutionMultiplier, 200*resolutionMultiplier, 100*resolutionMultiplier, image["blankBlue"], image["blankBlue"], resetFixesAlarm)
-fixesMuteButton = button([scenes["default"], scenes["acknowledge"]], (200+30+30)*resolutionMultiplier, 30*resolutionMultiplier, 100*resolutionMultiplier, 100*resolutionMultiplier, image["muted"], image["muted"], toggleFixesAlarmMute)
+resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                            30*resolutionMultiplier, 30*resolutionMultiplier, 
+                            200*resolutionMultiplier, 100*resolutionMultiplier, 
+                            pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
+                            onclickFunction = resetFixesAlarm)
 
-DCSAlarmButton = button([scenes["default"]], 30*2, alarmButtonY, alarmButtonWidth, alarmButtonWidth, image["DCSred"], image["DCSgray"], DCSAlarmObj.playAlarm)
-GeneralAlarmButton = button([scenes["default"]], 30*3 + alarmButtonWidth, alarmButtonY, alarmButtonWidth, alarmButtonWidth, image["generalRed"], image["generalGray"], GeneralAlarmObj.playAlarm)
-HalifaxActionAlarmButton = button([scenes["default"]], 30*4 + alarmButtonWidth*2, alarmButtonY, alarmButtonWidth, alarmButtonWidth, image["actionRed"], image["actionGray"], HalifaxActionAlarmObj.playAlarm)
+fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                         (200+30+30)*resolutionMultiplier, 30*resolutionMultiplier, 
+                         100*resolutionMultiplier, 100*resolutionMultiplier, 
+                         defaultImage = pygame.image.load("images/Muted.png").convert_alpha(), 
+                         onclickFunction = toggleFixesAlarmMute)
 
-Acksize = (60*1.7*resolutionMultiplier, 80*1.7*resolutionMultiplier)
-Acknowledge = button([scenes["acknowledge"]], Acksize[0], Acksize[1], SCREEN_WIDTH-(Acksize[0]*2), SCREEN_HEIGHT-(Acksize[1]*2), image["Acknowledge"], image["Acknowledge"], stopAlarm)
-setAlreadyPressed()
+DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
+                        30*2, alarmButtonY, 
+                        alarmButtonWidth, alarmButtonWidth,
+                        defaultImage = pygame.image.load("images/DCS-red.png").convert_alpha(),
+                        clickedImage = pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
+                        onclickFunction = DCSAlarmObj.playAlarm)
 
-#toggleNightModeButton = button([scenes["default"], scenes["acknowledge"]], (SCREEN_WIDTH-30-150)*resolutionMultiplier, (SCREEN_HEIGHT-30-150)*resolutionMultiplier, 100*resolutionMultiplier, 100*resolutionMultiplier, image["toggleDayMode"], image["toggleDayMode"], toggleNightMode)
-toggleNightModeButton = button([scenes["default"], scenes["acknowledge"]], (1080-190)*resolutionMultiplier, (720-170)*resolutionMultiplier, 150*resolutionMultiplier, 150*resolutionMultiplier, image["toggleDayMode"], image["toggleDayMode"], toggleNightMode)
+GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
+                            30*3 + alarmButtonWidth, alarmButtonY, 
+                            alarmButtonWidth, alarmButtonWidth, 
+                            defaultImage = pygame.image.load("images/General-red.png").convert_alpha(),
+                            clickedImage = pygame.image.load("images/General-Gray.png").convert_alpha(),
+                            onclickFunction = GeneralAlarmObj.playAlarm)
+
+HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
+                                  30*4 + alarmButtonWidth*2, alarmButtonY, 
+                                  alarmButtonWidth, alarmButtonWidth,
+                                  defaultImage = pygame.image.load("images/Action-red.png").convert_alpha(),
+                                  clickedImage = pygame.image.load("images/Action-Gray.png").convert_alpha(),
+                                  onclickFunction = HalifaxActionAlarmObj.playAlarm)
+
+acknowledgeSize: tuple[float,float] = (60*1.7*resolutionMultiplier, 80*1.7*resolutionMultiplier)
+Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
+                     acknowledgeSize[0], acknowledgeSize[1], 
+                     SCREEN_WIDTH-(acknowledgeSize[0]*2), SCREEN_HEIGHT-(acknowledgeSize[1]*2), 
+                     defaultImage = pygame.image.load("images/Acknowledge.png").convert_alpha(), 
+                     onclickFunction = stopAlarm)
+del acknowledgeSize
+setIgnoreNextPress()
+
+toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
+                               (1080-190)*resolutionMultiplier, (720-170)*resolutionMultiplier, 
+                               150*resolutionMultiplier, 150*resolutionMultiplier, 
+                               defaultImage = image["toggleDayMode"], 
+                               onclickFunction = toggleNightMode)
 
 # finish defining alarm objects
 DCSAlarmObj.alarmButton = DCSAlarmButton
@@ -259,32 +244,57 @@ pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFO
 #print("starting loop")
 
 while True: # main control loop
+    buttonsInScene: set = {}
+    for object in scenes[scene]:
+        if object.__class__ == 'OliversButtonModuleV2.button':
+            buttonsInScene.add(object)
+        else:
+            print(object.__class__)
+
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
-            QUITfunc()
+            quitFunc()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            QUITfunc()
+            quitFunc()
         elif event.type == pygame.WINDOWFOCUSGAINED:
             FPS = 60
         elif event.type == pygame.WINDOWFOCUSLOST:
             FPS = 2
         elif event.type == pygame.WINDOWCLOSE:
             #print("WINDOWCLOSE event detected - quitting...")
-            QUITfunc()
+            quitFunc()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            displayFPSInfo = not event.touch
-            if event.touch:
-                if QUITbutton in scenes["default"]:
-                    scenes["default"].remove(QUITbutton)
-            elif  QUITbutton not in scenes["default"]:
-                scenes["default"].insert(0,QUITbutton)
-                QUITbutton.alreadyPressed = True
+            displayFPSInfo = not event.touch     
+                
+            if event.touch == 1:
+                if quitButton.buttonRect.collidepoint(event.pos):
+                        if quitButton in scenes["default"]:
+                            quitFunc()
+                else:
+                    if quitButton in scenes["default"]:
+                        scenes["default"].remove(quitButton)
+                        scenes["acknowledge"].remove(quitButton)
+                        
+            elif quitButton in scenes["default"]:
+                if quitButton.buttonRect.collidepoint(event.pos):
+                    quitFunc()
+            else:
+                scenes["default"].insert(0,quitButton)
+                scenes["acknowledge"].insert(0,quitButton)
+                quitButton.ignoreNextPress = True      
+                
+            
+            for thisButton in buttonsInScene:
+                if thisButton.buttonRect.collidepoint(event.pos):
+                    thisButton.runOnclickFunction = True
+                    buttonsInScene.remove(thisButton)
+            
                 
             
     if nightMode:
-        DISPLAYSURF.fill("#202525") # set background colour
+        DISPLAYSURF.fill("#202525") # set background colour to night mode
     else:
-        DISPLAYSURF.fill("#d0d0d0") # set background colour
+        DISPLAYSURF.fill("#d0d0d0") # set background colour to day mode
 
     scene = nextScene
 
@@ -304,11 +314,6 @@ while True: # main control loop
         fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
     else:
         fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
-
-    #if timeUntilNextFix > AlarmTime:
-    #    print( F"ERROR: timeUntilNextFix:{timeUntilNextFix} : {seconds}   @ time: {time.localtime().tm_min}:{time.localtime().tm_sec}   nextFix: {nextFix}")
-
-    #print("running!")
    
     if displayFPSInfo:
         FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(),1)} ")

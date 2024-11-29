@@ -65,6 +65,12 @@ class button():
         Args:
             mousePos (tuple[int,int]): mouse coordinates 
         """
+        
+        if self.runOnclickFunction:
+            self.onclickFunction()
+            self.runOnclickFunction = False
+            
+        
         if mousePos == None:
             mousePos = pygame.mouse.get_pos()
    
