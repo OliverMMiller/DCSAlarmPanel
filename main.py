@@ -244,12 +244,10 @@ pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFO
 #print("starting loop")
 
 while True: # main control loop
-    buttonsInScene: set = {}
+    buttonsInScene: list = []
     for object in scenes[scene]:
-        if object.__class__ == 'OliversButtonModuleV2.button':
-            buttonsInScene.add(object)
-        else:
-            print(object.__class__)
+        if object.__class__ is button:
+            buttonsInScene.append(object)
 
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
