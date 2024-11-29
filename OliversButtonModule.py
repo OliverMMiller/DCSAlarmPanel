@@ -1,3 +1,6 @@
+#Version 2.1
+#with event based button function execution
+#author: OliverMMiller
 import pygame
 #from typing import Callable
 
@@ -44,6 +47,7 @@ class button():
         
         self.ignoreNextPress = False
         self.alreadyPressed = False
+        self.runOnclickFunction = False
 
         self.updateImages(defaultImage, hoverImage, clickedImage)
         
@@ -75,26 +79,9 @@ class button():
    
         if self.buttonRect.collidepoint(mousePos):
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                if self.ignoreNextPress:
-                    self.ignoreNextPress = False
-                    self.alreadyPressed = True
-                    self.DISPLAYSURF.blit(self.hoverImage, self.buttonRect)
-                    
-                elif not self.runFuncOnce:
-                    self.onclickFunction()
-                    self.DISPLAYSURF.blit(self.clickedImage, self.buttonRect)
-                    
-                elif not self.alreadyPressed:
-                    self.onclickFunction()
-                    self.alreadyPressed = True
-                    self.DISPLAYSURF.blit(self.clickedImage, self.buttonRect)
-                else:
-                    self.DISPLAYSURF.blit(self.clickedImage, self.buttonRect)
-                
+                self.DISPLAYSURF.blit(self.clickedImage, self.buttonRect)
             else:
-                self.alreadyPressed = False
                 self.DISPLAYSURF.blit(self.hoverImage, self.buttonRect)
         else:
-            self.ignoreNextPress = False
-            self.alreadyPressed = False
             self.DISPLAYSURF.blit(self.defaultImage, self.buttonRect)
+        
