@@ -1,4 +1,4 @@
-#imports
+#Imports
 import sys
 import pygame
 import time
@@ -6,30 +6,30 @@ from pygame.locals import QUIT
 
 from OliversButtonModule import button as button
 
-#initializing pygame and mixer
+#Initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
 pygame.init()
 pygame.mixer.init()
 
-#defining colors
+#Defining colors
 WHITE = (255, 255, 255)
 
-#setting up screen
+#Setting up screen
 resolutionMultiplier = 3
 SCREEN_WIDTH = 1080 * resolutionMultiplier
 SCREEN_HEIGHT = 720 * resolutionMultiplier
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED)) # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
 
-#setting up mixer
+#Setting up mixer
 pygame.mixer.music.set_volume(1.00)
 
-# original alarms:
+# Original alarms:
 # DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
 # GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
 # HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 
-# "corrected" alarms:
+# "Corrected" alarms:
 HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
 DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
 GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
@@ -37,7 +37,7 @@ GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.5)
 
-#images
+#Images
 image = {
 "muted" : pygame.image.load("images/Muted.png").convert_alpha(),
 "unmuted" : pygame.image.load("images/Unmuted.png").convert_alpha(),
@@ -93,6 +93,10 @@ class alarmObj():
         self.alarmSound = alarmSound
         
     def playAlarm(self) -> None:
+        """
+        Plays the alarm sound if no other alarm is currently playing.
+        Sets the next scene to 'acknowledge' and marks the alarm button as pressed.
+        """
         global currentAlarm
         if currentAlarm == None:
             self.alarmSound.play(loops = 0, maxtime = (10**4), fade_ms = 0)
@@ -102,6 +106,10 @@ class alarmObj():
             self.alarmButton.alreadyPressed = True   
         
 def stopAlarm() -> None:
+    """
+    Stops the currently playing alarm sound and resets the current alarm.
+    Sets the next scene to 'default' and ignores the next button press.
+    """
     global currentAlarm
     if currentAlarm:
         currentAlarm.alarmSound.stop() # stops audio
@@ -110,16 +118,19 @@ def stopAlarm() -> None:
         nextScene = "default"
         setIgnoreNextPress()
 
-
+# Initialize alarm objects
 currentAlarm: alarmObj | None
+
 # need to partly define alarm objects before defining buttons
 DCSAlarmObj = alarmObj(None, DCSAlarm)
 GeneralAlarmObj = alarmObj(None, GeneralAlarm)
 HalifaxActionAlarmObj = alarmObj(None, HalifaxActionAlarm)
 
-#define functions
+#Define functions
 def quitFunc() -> None: # runs when "Quit" button is pressed
-    #ends program
+    """
+    Quits the program when the 'Quit' button is pressed.
+    """
     pygame.quit()
     sys.exit()
 

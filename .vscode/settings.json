@@ -1,0 +1,38 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+
+        "**/builtins.pyi": true,
+        "**/configuration.py": true,
+        "**/__init__.py": true,
+        "**/mixer.py": true
+    },
+    
+    "cSpell.words": [
+        "Acksize",
+        "blit",
+        "collidepoint",
+        "DISPLAYSURF",
+        "maxtime",
+        "MOUSEBUTTONDOWN",
+        "MOUSEBUTTONUP",
+        "mspt",
+        "NOFRAME",
+        "Olivers",
+        "tprint",
+        "unmuted",
+        "WINDOWCLOSE",
+        "WINDOWFOCUSGAINED",
+        "WINDOWFOCUSLOST"
+    ],
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}

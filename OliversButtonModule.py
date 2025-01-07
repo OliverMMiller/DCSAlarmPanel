@@ -2,7 +2,7 @@
 #with event based button function execution
 #author: OliverMMiller
 import pygame
-#from typing import Callable
+from typing import Callable
 
 class button():
     def updateImages(self, defaultImage: pygame.surface.Surface, 
@@ -20,7 +20,7 @@ class button():
 
     def __init__(self, DISPLAYSURF, parentScenes: list, x: int, y: int, width: int, height: int,
                  defaultImage: pygame.surface.Surface, hoverImage: pygame.surface.Surface | None = None, clickedImage: pygame.surface.Surface | None = None,
-                 onclickFunction: ... = None, runFuncOnce: bool = True):
+                 onclickFunction: Callable = None, runFuncOnce: bool = True):
         """
         Dependencies:
             pygame
