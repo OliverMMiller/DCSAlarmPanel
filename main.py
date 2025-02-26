@@ -3,6 +3,7 @@ import sys
 import pygame
 import time
 from pygame.locals import QUIT
+from typing import NewType
 
 from OliversButtonModule import button as button
 
@@ -23,6 +24,14 @@ pygame.display.set_caption('DCS Alarm Panel')
 
 #Setting up mixer
 pygame.mixer.music.set_volume(1.00)
+Notify = pygame.mixer.Sound("sound/Notify.wav")
+Notify.set_volume(0.5)
+boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
+boatHorn.set_volume(1.00)
+
+#Setting up fonts
+hornFont = pygame.font.Font(None, 100 * resolutionMultiplier)
+myFont = pygame.font.SysFont('Arial', 50)
 
 # Original alarms:
 # DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
@@ -33,9 +42,6 @@ pygame.mixer.music.set_volume(1.00)
 HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
 DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
 GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
-
-Notify = pygame.mixer.Sound("sound/Notify.wav")
-Notify.set_volume(0.5)
 
 #Images
 image = {
@@ -65,11 +71,6 @@ fixesAlarmMuted = True
 scenes = { "default" : [], "acknowledge" : []}
 scene = "default"
 nextScene = "default"
-
-FINGERdown = False
-
-#
-myFont = pygame.font.SysFont('Arial', 50)
 
 class TextPrint:
     def __init__(self):
@@ -117,6 +118,64 @@ def stopAlarm() -> None:
         global nextScene
         nextScene = "default"
         setIgnoreNextPress()
+
+       
+ValueInRange = NewType('ValueInRange', float)
+def validate_value(value: float, min: float, max: float) -> ValueInRange:
+    if min <= value <= max:
+        return ValueInRange(value)
+    else:
+        raise ValueError(f"Value {value} is out of the accepted range ({min}-{max})") 
+        
+class squircle():
+    def __init__(self, width, height, borderColor: pygame.Color | None, fillColor: pygame.Color | None):
+        self.width = width
+        self.height = height
+        self.ignoreTextOverflow = False
+        self.mySurface = pygame.Surface((width, height), flags = pygame.SRCALPHA)
+        self.borderWidth = 3 * resolutionMultiplier
+        self.borderRadius = 50 * resolutionMultiplier
+        if not (borderColor and fillColor):
+            raise ValueError("borderColor and/or fillColor must be provided")
+        rect = pygame.Rect(0, 0, self.width, self.height)
+        rect2 = pygame.Rect(self.borderWidth, self.borderWidth, self.width-(self.borderWidth*2), self.height-(self.borderWidth*2))
+        if fillColor:
+            pygame.draw.rect(self.mySurface, fillColor,rect2, 
+                            0, self.borderRadius)
+        if borderColor:
+            pygame.draw.rect(self.mySurface, borderColor, rect2, 
+                            self.borderWidth, self.borderRadius)
+
+    def setText(self, text: str, font: pygame.font.Font, color: pygame.Color, 
+                justificationType: str = "centered", 
+                xJustification: float = 0.5, yJustification: float = 0.5) -> None:
+        
+            xJustification = validate_value(xJustification, 0, 1)
+            yJustification = validate_value(yJustification, 0, 1)
+            size = font.size(text)
+            if (size[0] > self.width or size[1] > self.height) and not self.ignoreTextOverflow:
+                raise ValueError(f"Text too large to fit in squircle/nText: {text}")
+            if justificationType == "centered":
+                x = self.width * xJustification - size[0]/2
+                y = self.height * yJustification - size[1]/2
+            if justificationType == "absolute":            
+                x = xJustification
+                y = yJustification
+            self.mySurface.blit(font.render(text, True, color), (x, y))
+            
+class squircleButton(squircle, button):
+    def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x, y, width: int, height: int,
+                 text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
+                 borderColor: pygame.Color | None, fillColor: pygame.Color | None,
+                 onClickFunction) -> None:
+        squircle.__init__(self, width, height, borderColor, fillColor)
+        if text:
+            if not (myFont and textColor):
+                raise ValueError("myFont and textColor must be provided if text is provided")
+            self.setText(text, myFont, textColor)
+        button.__init__(self, DISPLAYSURF, scenes, x, y, width, height,
+                        defaultImage = self.mySurface, onClickFunction = onClickFunction)
+
 
 # Initialize alarm objects
 currentAlarm: alarmObj | None
@@ -176,6 +235,13 @@ def setIgnoreNextPress() -> None: # used to prevent double activations on one cl
     GeneralAlarmButton.ignoreNextPress = True
     HalifaxActionAlarmButton.ignoreNextPress = True
     resetFixTimeButton.ignoreNextPress = True
+        
+def playHornFunc() -> None:
+    if boatHorn.get_num_channels() < 2:
+        boatHorn.play(loops = 0, maxtime = (10**4), fade_ms = 0)
+
+def stopHornFunc() -> None:
+    boatHorn.stop()
 
 #create button objects
 alarmButtonWidth = (SCREEN_WIDTH/3 - 2*30)
@@ -184,47 +250,47 @@ alarmButtonY = SCREEN_HEIGHT/2 - alarmButtonWidth/2
 quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230*resolutionMultiplier, 30*resolutionMultiplier, 
                     200*resolutionMultiplier, 100*resolutionMultiplier, 
                     defaultImage = pygame.image.load("images/Quit.png").convert_alpha(), 
-                    onclickFunction = quitFunc)
+                    onClickFunction = quitFunc)
 
 resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
                             30*resolutionMultiplier, 30*resolutionMultiplier, 
                             200*resolutionMultiplier, 100*resolutionMultiplier, 
                             pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
-                            onclickFunction = resetFixesAlarm)
+                            onClickFunction = resetFixesAlarm)
 
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
                          (200+30+30)*resolutionMultiplier, 30*resolutionMultiplier, 
                          100*resolutionMultiplier, 100*resolutionMultiplier, 
                          defaultImage = pygame.image.load("images/Muted.png").convert_alpha(), 
-                         onclickFunction = toggleFixesAlarmMute)
+                         onClickFunction = toggleFixesAlarmMute)
 
 DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                         30*2, alarmButtonY, 
                         alarmButtonWidth, alarmButtonWidth,
                         defaultImage = pygame.image.load("images/DCS-red.png").convert_alpha(),
                         hoverImage = pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
-                        onclickFunction = DCSAlarmObj.playAlarm)
+                        onClickFunction = DCSAlarmObj.playAlarm)
 
 GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                             30*3 + alarmButtonWidth, alarmButtonY, 
                             alarmButtonWidth, alarmButtonWidth, 
                             defaultImage = pygame.image.load("images/General-red.png").convert_alpha(),
                             hoverImage = pygame.image.load("images/General-Gray.png").convert_alpha(),
-                            onclickFunction = GeneralAlarmObj.playAlarm)
+                            onClickFunction = GeneralAlarmObj.playAlarm)
 
 HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                                   30*4 + alarmButtonWidth*2, alarmButtonY, 
                                   alarmButtonWidth, alarmButtonWidth,
                                   defaultImage = pygame.image.load("images/Action-red.png").convert_alpha(),
                                   hoverImage = pygame.image.load("images/Action-Gray.png").convert_alpha(),
-                                  onclickFunction = HalifaxActionAlarmObj.playAlarm)
+                                  onClickFunction = HalifaxActionAlarmObj.playAlarm)
 
 acknowledgeSize: tuple[float,float] = (60*1.7*resolutionMultiplier, 80*1.7*resolutionMultiplier)
 Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
                      acknowledgeSize[0], acknowledgeSize[1], 
                      SCREEN_WIDTH-(acknowledgeSize[0]*2), SCREEN_HEIGHT-(acknowledgeSize[1]*2), 
                      defaultImage = pygame.image.load("images/Acknowledge.png").convert_alpha(), 
-                     onclickFunction = stopAlarm)
+                     onClickFunction = stopAlarm)
 del acknowledgeSize
 setIgnoreNextPress()
 
@@ -232,7 +298,13 @@ toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowle
                                (1080-190)*resolutionMultiplier, (720-170)*resolutionMultiplier, 
                                150*resolutionMultiplier, 150*resolutionMultiplier, 
                                defaultImage = image["toggleDayMode"], 
-                               onclickFunction = toggleNightMode)
+                               onClickFunction = toggleNightMode)
+
+hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 300, SCREEN_HEIGHT-500, 
+                            700*resolutionMultiplier, 160*resolutionMultiplier,
+                            text = "Horn", myFont = hornFont, textColor = pygame.Color(0, 0, 0, 255), 
+                            borderColor = pygame.Color(0, 0, 0, 255), fillColor = pygame.Color(140, 140, 140, 255),
+                            onClickFunction = playHornFunc)
 
 # finish defining alarm objects
 DCSAlarmObj.alarmButton = DCSAlarmButton
@@ -249,15 +321,22 @@ FPSPrinter.x = 10 * resolutionMultiplier
 FPSPrinter.y = 10 * resolutionMultiplier
 #FPSPrinter.line_height = 80 * resolutionMultiplier
 
-pygame.event.set_allowed((pygame.QUIT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST))#control which events are allowed on the queue
+pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
+                          pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST, 
+                          pygame.MOUSEBUTTONDOWN)) #control which events are allowed on the queue
 
-#print("starting loop")
 
-while True: # main control loop
-    buttonsInScene: list = []
+while __name__ == "__main__": # main control loop
+    hasOnClickFunction: list = []
+    hasOnReleaseFunction: list = []
     for object in scenes[scene]:
-        if object.__class__ is button:
-            buttonsInScene.append(object)
+        if hasattr(object, "onClickFunction"):
+            if object.onClickFunction:
+                hasOnClickFunction.append(object)
+        if hasattr(object, "onReleaseFunction"):
+            if object.onReleaseFunction:
+                hasOnReleaseFunction.append(object)
+
 
     for event in pygame.event.get():
         if event.type == QUIT: # if program exited then end program
@@ -272,33 +351,28 @@ while True: # main control loop
             #print("WINDOWCLOSE event detected - quitting...")
             quitFunc()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            displayFPSInfo = not event.touch     
-                
+            for thisIntractable in hasOnClickFunction:
+                if thisIntractable.myRect.collidepoint(event.pos):
+                    thisIntractable.onClickFunction()
+                    hasOnClickFunction.remove(thisIntractable)
+                    
             if event.touch == 1:
-                if quitButton.buttonRect.collidepoint(event.pos):
-                        if quitButton in scenes["default"]:
-                            quitFunc()
-                else:
-                    if quitButton in scenes["default"]:
+                displayFPSInfo = False
+                if quitButton in scenes["default"]:
                         scenes["default"].remove(quitButton)
                         scenes["acknowledge"].remove(quitButton)
-                        
-            elif quitButton in scenes["default"]:
-                if quitButton.buttonRect.collidepoint(event.pos):
-                    quitFunc()
             else:
                 scenes["default"].insert(0,quitButton)
                 scenes["acknowledge"].insert(0,quitButton)
-                quitButton.ignoreNextPress = True      
-                
+                quitButton.ignoreNextPress = True    
+        elif event.type == pygame.MOUSEBUTTONUP:
+            for thisIntractable in hasOnReleaseFunction:
+                if thisIntractable.myRect.collidepoint(event.pos):
+                    thisIntractable.onReleaseFunction()
+                    hasOnReleaseFunction.remove(thisIntractable)
+
             
-            for thisButton in buttonsInScene:
-                if thisButton.buttonRect.collidepoint(event.pos):
-                    thisButton.runOnclickFunction = True
-                    buttonsInScene.remove(thisButton)
-            
-                
-            
+    
     if nightMode:
         DISPLAYSURF.fill("#202525") # set background colour to night mode
     else:
@@ -306,7 +380,7 @@ while True: # main control loop
 
     scene = nextScene
 
-    #renders all the buttons
+    #renders all objects in the current scene
     for object in scenes[scene]:
         object.process(None)
 

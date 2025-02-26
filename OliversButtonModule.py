@@ -8,6 +8,7 @@ class button():
     def updateImages(self, defaultImage: pygame.surface.Surface, 
                      hoverImage: pygame.surface.Surface | None = None, 
                      clickedImage: pygame.surface.Surface | None = None):
+        
         self.defaultImage = pygame.transform.scale((defaultImage),(self.width, self.height))
         if hoverImage == None:
             self.hoverImage = self.defaultImage.copy()
@@ -18,9 +19,9 @@ class button():
         else:
             self.clickedImage = pygame.transform.scale((clickedImage),(self.width, self.height))
 
-    def __init__(self, DISPLAYSURF, parentScenes: list, x: int, y: int, width: int, height: int,
+    def __init__(self, DISPLAYSURF: pygame.surface.Surface, parentScenes: list, x: int, y: int, width: int, height: int,
                  defaultImage: pygame.surface.Surface, hoverImage: pygame.surface.Surface | None = None, clickedImage: pygame.surface.Surface | None = None,
-                 onclickFunction: Callable = None, runFuncOnce: bool = True):
+                 onClickFunction: Callable = None, runFuncOnce: bool = True):
         """
         Dependencies:
             pygame
@@ -42,17 +43,17 @@ class button():
         self.y = y
         self.width = width
         self.height = height
-        self.onclickFunction = onclickFunction
+        self.onClickFunction = onClickFunction
+        self.onReleaseFunction = None
         self.runFuncOnce = runFuncOnce
         
         self.ignoreNextPress = False
         self.alreadyPressed = False
-        self.runOnclickFunction = False
 
         self.updateImages(defaultImage, hoverImage, clickedImage)
         
-        self.buttonRect = self.defaultImage.get_rect()
-        self.buttonRect.update((self.x, self.y),(self.width, self.height))
+        self.myRect = self.defaultImage.get_rect()
+        self.myRect.update((self.x, self.y),(self.width, self.height))
 
         for num in range(len(parentScenes)):
             parentScenes[num].insert(0,self)
@@ -60,28 +61,23 @@ class button():
     def __repr__(self):
         return self.__name__
             
-    def process(self, mousePos: tuple[int,int]) -> None:
+    def process(self, mousePos: tuple[int,int] | None) -> None:
         """
-        if clicked runs onclickFunction
-        then draws button to DISPLAYSURF with appropriate image
+        draws button to DISPLAYSURF with appropriate image
         
         Args:
             mousePos (tuple[int,int]): mouse coordinates 
         """
-        
-        if self.runOnclickFunction:
-            self.onclickFunction()
-            self.runOnclickFunction = False
-            
+          
         
         if mousePos == None:
             mousePos = pygame.mouse.get_pos()
    
-        if self.buttonRect.collidepoint(mousePos):
+        if self.myRect.collidepoint(mousePos):
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                self.DISPLAYSURF.blit(self.clickedImage, self.buttonRect)
+                self.DISPLAYSURF.blit(self.clickedImage, self.myRect)
             else:
-                self.DISPLAYSURF.blit(self.hoverImage, self.buttonRect)
+                self.DISPLAYSURF.blit(self.hoverImage, self.myRect)
         else:
-            self.DISPLAYSURF.blit(self.defaultImage, self.buttonRect)
+            self.DISPLAYSURF.blit(self.defaultImage, self.myRect)
         
