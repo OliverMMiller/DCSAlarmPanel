@@ -30,6 +30,7 @@ boatHorn.set_volume(1.00)
 
 # Setting up fonts
 hornFont = pygame.font.Font(None, 100 * resolutionMultiplier)
+alarmFont = pygame.font.Font(None, 55 * resolutionMultiplier)
 myFont = pygame.font.SysFont('Arial', 50)
 
 # Original alarms (commented out for now)
@@ -130,32 +131,60 @@ def stopAlarm() -> None:
         nextScene = "default"
         setIgnoreNextPress()
 
-ValueInRange = NewType('ValueInRange', float)
-
-def validate_value(value: float, min: float, max: float) -> ValueInRange:
+def validate_value(value: float | int, min: float | int, max: float | int) -> float | int:
     """
     Validates if a value is within a specified range.
     """
     if min <= value <= max:
-        return ValueInRange(value)
+        return value
     else:
         raise ValueError(f"Value {value} is out of the accepted range ({min}-{max})")
 
+Unspecified = NewType("Unspecified", None)
+def assign_if_valid(thisClass, kwargsList, key: str, expected_type, default=Unspecified, validator=None):
+    """
+    Assigns the value from kwargsList to an attribute of thisClass if it exists and is of the expected type.
+    Optionally validates the value using a provided validator function.
+    
+    Parameters:
+    thisClass (object): The class instance to assign the attribute to.
+    kwargsList (dict): The dictionary containing potential attributes.
+    key (str): The key to look for in kwargsList.
+    expected_type (type): The expected type of the value.
+    default (any, optional): The default value to assign if key is not in kwargsList. Defaults to Unspecified.
+    validator (function, optional): A function to validate the value. Defaults to None.
+    """
+    try:
+        kwargsList = kwargsList["kwargs"]
+        if key in kwargsList and isinstance(kwargsList[key], expected_type):
+            value = kwargsList[key]
+            if validator:
+                value = validator(value)
+            thisClass.__setattr__(key, value)
+        elif default is not Unspecified:
+            thisClass.__setattr__(key, default)
+    except KeyError:
+        pass
 class squircle:
     """
     Class to represent a squircle shape.
     """
-    def __init__(self, width, height, borderColor: pygame.Color | None, fillColor: pygame.Color | None):
+    def __init__(self, width, height, borderColor: pygame.Color | None, fillColor: pygame.Color | None, **kwargs) -> None:
         self.width = width
         self.height = height
         self.borderColor = borderColor
         self.fillColor = fillColor
-        self.ignoreTextOverflow = False
         self.mySurface = pygame.Surface((width, height), flags=pygame.SRCALPHA)
-        self.borderWidth = 3 * resolutionMultiplier
-        self.borderRadius = 50 * resolutionMultiplier
+        self.borderWidth: int
+        self.borderRadius: int
+        self.ignoreTextOverflow: bool       
+        assign_if_valid(self, kwargs, "borderWidth", int, 3 * resolutionMultiplier, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
+        assign_if_valid(self, kwargs, "borderRadius", int, 50 * resolutionMultiplier, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
+        assign_if_valid(self, kwargs, "ignoreTextOverflow", bool, False)
+        
         if not (self.borderColor and self.fillColor):
             raise ValueError("borderColor and/or fillColor must be provided")
+        
         rect2 = pygame.Rect(self.borderWidth, self.borderWidth, self.width - (self.borderWidth * 2), self.height - (self.borderWidth * 2))
         if self.fillColor:
             pygame.draw.rect(self.mySurface, self.fillColor, rect2, 0, self.borderRadius)
@@ -166,18 +195,13 @@ class squircle:
         """
         Updates the text on the squircle.
         """
-        if "text" in kwargs and isinstance(kwargs["text"], str):
-            self.text = kwargs["text"]
-        if "font" in kwargs and isinstance(kwargs["font"], pygame.font.Font):
-            self.font = kwargs["font"]
-        if "textColor" in kwargs and isinstance(kwargs["textColor"], pygame.Color):
-            self.textColor = kwargs["textColor"]
-        if "justificationType" in kwargs and kwargs["justificationType"] in ("centered", "absolute"):
-            self.justificationType = kwargs["justificationType"]
-        if "xJustification" in kwargs:
-            self.xJustification = validate_value(kwargs["xJustification"], 0, 1)
-        if "yJustification" in kwargs:
-            self.yJustification = validate_value(kwargs["yJustification"], 0, 1)
+        assign_if_valid(self, kwargs, "text", str)
+        assign_if_valid(self, kwargs, "font", pygame.font.Font)
+        assign_if_valid(self, kwargs, "textColor", pygame.Color)
+        assign_if_valid(self, kwargs, "justificationType", str, "centered", validator=lambda x: x in ("centered", "absolute"))
+        assign_if_valid(self, kwargs, "xJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
+        assign_if_valid(self, kwargs, "yJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
+        assign_if_valid(self, kwargs, "lineSpacing", int, 4, validator=lambda x: validate_value(x, 0, 1**4))
 
         size = self.font.size(self.text)
         if (size[0] > self.width or size[1] > self.height) and not self.ignoreTextOverflow:
@@ -190,7 +214,7 @@ class squircle:
             y = self.yJustification
         self.mySurface.blit(self.font.render(self.text, True, self.textColor), (x, y))
 
-    def setText(self, text: str, font: pygame.font.Font, color: pygame.Color, 
+    def setText(self, text: str | list[str], font: pygame.font.Font, color: pygame.Color, 
                 justificationType: str = "centered", 
                 xJustification: float = 0.5, yJustification: float = 0.5) -> None:
         """
@@ -230,8 +254,8 @@ class squircleButton(squircle, button):
     def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x, y, width: int, height: int,
                  text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
                  borderColor: pygame.Color | None, fillColor: pygame.Color | None,
-                 onClickFunction) -> None:
-        squircle.__init__(self, width, height, borderColor, fillColor)
+                 onClickFunction, **kwargs) -> None:
+        squircle.__init__(self, width, height, borderColor, fillColor, kwargs = kwargs)
         if text:
             if not (myFont and textColor):
                 raise ValueError("myFont and textColor must be provided if text is provided")
@@ -333,11 +357,12 @@ quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * resolutionMultiplier, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
-resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                            30 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                            200 * resolutionMultiplier, 100 * resolutionMultiplier, 
-                            pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
-                            onClickFunction=resetFixesAlarm)
+resetFixTimeButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                                    30 * resolutionMultiplier, 30 * resolutionMultiplier, 
+                                    200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                                    text=None, myFont=myFont, textColor=pygame.Color(0, 0, 0),
+                                    borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(153, 204, 255),
+                                    onClickFunction=resetFixesAlarm, borderRadius = 30 * resolutionMultiplier)
 
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
                          (200 + 30 + 30) * resolutionMultiplier, 30 * resolutionMultiplier, 
@@ -345,34 +370,39 @@ fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]]
                          defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
                          onClickFunction=toggleFixesAlarmMute)
 
-DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                        30 * 2, alarmButtonY, 
-                        alarmButtonWidth, alarmButtonWidth,
-                        defaultImage=pygame.image.load("images/DCS-red.png").convert_alpha(),
-                        hoverImage=pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
-                        onClickFunction=DCSAlarmObj.playAlarm)
+DCSAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                                30 * 2, alarmButtonY, 
+                                alarmButtonWidth, alarmButtonWidth/3,
+                                text="DCS Alarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
+                                borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
+                                onClickFunction=DCSAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
+DCSAlarmButton.hoverImage = DCSAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
 
-GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                            30 * 3 + alarmButtonWidth, alarmButtonY, 
-                            alarmButtonWidth, alarmButtonWidth, 
-                            defaultImage=pygame.image.load("images/General-red.png").convert_alpha(),
-                            hoverImage=pygame.image.load("images/General-Gray.png").convert_alpha(),
-                            onClickFunction=GeneralAlarmObj.playAlarm)
+GeneralAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                                    30 * 3 + alarmButtonWidth, alarmButtonY, 
+                                    alarmButtonWidth, alarmButtonWidth/3, 
+                                    text="General Alarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
+                                    borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
+                                    onClickFunction=GeneralAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
+GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
 
-HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                                  30 * 4 + alarmButtonWidth * 2, alarmButtonY, 
-                                  alarmButtonWidth, alarmButtonWidth,
-                                  defaultImage=pygame.image.load("images/Action-red.png").convert_alpha(),
-                                  hoverImage=pygame.image.load("images/Action-Gray.png").convert_alpha(),
-                                  onClickFunction=HalifaxActionAlarmObj.playAlarm)
+HalifaxActionAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                                          30 * 4 + alarmButtonWidth * 2, alarmButtonY, 
+                                          alarmButtonWidth, alarmButtonWidth/3,
+                                          text="Action Stations", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
+                                          borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
+                                          onClickFunction=HalifaxActionAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
+HalifaxActionAlarmButton.hoverImage = HalifaxActionAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
 
 acknowledgeSize: tuple[float, float] = (60 * 1.7 * resolutionMultiplier, 80 * 1.7 * resolutionMultiplier)
-Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
-                     acknowledgeSize[0], acknowledgeSize[1], 
-                     SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
-                     defaultImage=pygame.image.load("images/Acknowledge.png").convert_alpha(), 
-                     onClickFunction=stopAlarm)
+Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]], 
+                             acknowledgeSize[0], acknowledgeSize[1], 
+                             SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
+                             text="Acknowledge", myFont=pygame.font.Font(None, 500), textColor=pygame.Color(0, 0, 0),
+                             borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(200, 0, 0),
+                             onClickFunction=stopAlarm)
 del acknowledgeSize
+
 setIgnoreNextPress()
 
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
