@@ -15,9 +15,9 @@ pygame.mixer.init()
 WHITE = (255, 255, 255)
 
 # Setting up screen
-resolutionMultiplier = 3
-SCREEN_WIDTH = 1080 * resolutionMultiplier
-SCREEN_HEIGHT = 720 * resolutionMultiplier
+RES_MULT = 3
+SCREEN_WIDTH = 1080 * RES_MULT
+SCREEN_HEIGHT = 720 * RES_MULT
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED))  # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
 
@@ -25,13 +25,15 @@ pygame.display.set_caption('DCS Alarm Panel')
 pygame.mixer.music.set_volume(1.00)
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.5)
-boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
-boatHorn.set_volume(1.00)
+longHornSound = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
+longHornSound.set_volume(1.00)
+shortHornSound = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
+shortHornSound.set_volume(1.00)
 
 # Setting up fonts
-hornFont = pygame.font.Font(None, 100 * resolutionMultiplier)
-alarmFont = pygame.font.Font(None, 55 * resolutionMultiplier)
-myFont = pygame.font.SysFont('Arial', 50)
+hornFont = pygame.font.Font(None, 33 * RES_MULT)
+alarmFont = pygame.font.Font(None, 55 * RES_MULT)
+myFont = pygame.font.SysFont('Arial', 20 * RES_MULT)
 
 # Original alarms (commented out for now)
 # DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
@@ -66,6 +68,9 @@ nightMode = False
 nextFix = time.localtime().tm_min + AlarmTime - 1 + (round(time.localtime().tm_sec / 60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60
 fixesAlarmMuted = True
+hornQueue = []
+hornPlaying: str = ""
+waitTime = time.time()
 
 # Scenes
 scenes = {"default": [], "acknowledge": []}
@@ -76,26 +81,59 @@ class TextPrint:
     """
     Class to handle text printing on the screen.
     """
-    def __init__(self):
+    def __init__(self, x: int, y: int, 
+                font: pygame.font.Font, textColor: pygame.Color = pygame.Color(0, 0, 0),
+                lineSpacing: int | None = -1, indentSize: int = 10) -> None:
+        self.myFont = font
+        self.myFont = self.myFont
+        self.textColor = textColor
+        self.startX = x
+        self.startY = y
+        if lineSpacing is None:
+            self.defaultLineSpacing = None
+        else:
+            self.defaultLineSpacing = lineSpacing
+        self.indentSize = indentSize
         self.reset()
-        self.font1 = pygame.font.Font(None, 90 * resolutionMultiplier)
 
-    def tprint(self, screen, text, moveDown=False) -> None:
+    def PrintLine(self, screen, text: str) -> None:
         """
         Prints text on the screen.
         """
-        text_bitmap = self.font1.render(text, True, (0, 0, 0))
+        text_bitmap = self.myFont.render(text, True, self.textColor)
         screen.blit(text_bitmap, (self.x, self.y))
-        if moveDown:
-            self.y += self.line_height
+        if self.lineSpacing is not None:
+            self.y += self.myFont.get_height() + self.lineSpacing
+        
+    def tprint(self, screen, text: list[str] | str) -> None:
+        """
+        Prints text on the screen.
+        """
+        if isinstance(text, str):
+            if "\n" in text:
+                text = text.split("\n")
+            else:
+                text = [text]
+        if isinstance(text, list):
+            for line in text:
+                self.PrintLine(screen, line)
+        else:
+            raise ValueError("text must be a string or a list of strings")
+
 
     def reset(self) -> None:
         """
         Resets the text position.
         """
-        self.x = 50 * resolutionMultiplier
-        self.y = 50 * resolutionMultiplier
-        self.line_height = 80 * resolutionMultiplier
+        self.x = self.startX
+        self.y = self.startY
+        self.lineSpacing = self.defaultLineSpacing
+        
+    def indent(self, direction: int) -> None:
+        """
+        Indents the text.
+        """
+        self.x += self.indentSize * direction
 
 class alarmObj:
     """
@@ -141,7 +179,31 @@ def validate_value(value: float | int, min: float | int, max: float | int) -> fl
         raise ValueError(f"Value {value} is out of the accepted range ({min}-{max})")
 
 Unspecified = NewType("Unspecified", None)
-def assign_if_valid(thisClass, kwargsList, key: str, expected_type, default=Unspecified, validator=None):
+def validate_kwarg(kwargsList, key: str, expected_type, default=Unspecified, validator=None):
+    """
+    Validates a key in kwargsList and returns the value if it exists and is of the expected type.
+    Optionally validates the value using a provided validator function.
+    
+    Parameters:
+    kwargsList (dict): The dictionary containing potential attributes.
+    key (str): The key to look for in kwargsList.
+    expected_type (type): The expected type of the value.
+    default (any, optional): The default value to assign if key is not in kwargsList. Defaults to Unspecified.
+    validator (function, optional): A function to validate the value. Defaults to None.
+    """
+    try:
+        kwargsList = kwargsList["kwargs"]
+    except KeyError:
+        return
+    if key in kwargsList and isinstance(kwargsList[key], expected_type):
+        value = kwargsList[key]
+        if validator:
+            value = validator(value)
+        return value
+    elif default is not Unspecified:
+        return default
+
+def assign_kwargs_if_valid(thisClass, kwargsList, key: str, expected_type, default=Unspecified, validator=None):
     """
     Assigns the value from kwargsList to an attribute of thisClass if it exists and is of the expected type.
     Optionally validates the value using a provided validator function.
@@ -156,20 +218,37 @@ def assign_if_valid(thisClass, kwargsList, key: str, expected_type, default=Unsp
     """
     try:
         kwargsList = kwargsList["kwargs"]
-        if key in kwargsList and isinstance(kwargsList[key], expected_type):
-            value = kwargsList[key]
-            if validator:
-                value = validator(value)
-            thisClass.__setattr__(key, value)
-        elif default is not Unspecified:
-            thisClass.__setattr__(key, default)
     except KeyError:
-        pass
+        return
+    if key in kwargsList and isinstance(kwargsList[key], expected_type):
+        value = kwargsList[key]
+        if validator:
+            value = validator(value)
+        thisClass.__setattr__(key, value)
+    elif default is not Unspecified:
+        thisClass.__setattr__(key, default)
 class squircle:
     """
     Class to represent a squircle shape.
     """
-    def __init__(self, width, height, borderColor: pygame.Color | None, fillColor: pygame.Color | None, **kwargs) -> None:
+    def __init__(self, width: int, height: int, borderColor: pygame.Color | None, fillColor: pygame.Color | None, **kwargs) -> None:
+        """
+        Initializes a squircle shape.
+
+        Args:
+            width (int): The width of the squircle.
+            height (int): The height of the squircle.
+            borderColor (pygame.Color | None): The color of the border.
+            fillColor (pygame.Color | None): The color to fill the squircle.
+            
+            borderWidth (int): The width of the border.
+            borderRadius (int): The radius of the border corners.
+            ignoreTextOverflow (bool): Whether to ignore text overflow.
+
+        Raises:
+            ValueError: If borderColor and/or fillColor are not provided.
+
+        """
         self.width = width
         self.height = height
         self.borderColor = borderColor
@@ -178,9 +257,9 @@ class squircle:
         self.borderWidth: int
         self.borderRadius: int
         self.ignoreTextOverflow: bool       
-        assign_if_valid(self, kwargs, "borderWidth", int, 3 * resolutionMultiplier, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
-        assign_if_valid(self, kwargs, "borderRadius", int, 50 * resolutionMultiplier, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
-        assign_if_valid(self, kwargs, "ignoreTextOverflow", bool, False)
+        assign_kwargs_if_valid(self, kwargs, "borderWidth", int, 3 * RES_MULT, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
+        assign_kwargs_if_valid(self, kwargs, "borderRadius", int, 50 * RES_MULT, validator=lambda x: validate_value(x, 0, min(width, height) / 2))
+        assign_kwargs_if_valid(self, kwargs, "ignoreTextOverflow", bool, False)
         
         if not (self.borderColor and self.fillColor):
             raise ValueError("borderColor and/or fillColor must be provided")
@@ -195,13 +274,13 @@ class squircle:
         """
         Updates the text on the squircle.
         """
-        assign_if_valid(self, kwargs, "text", str)
-        assign_if_valid(self, kwargs, "font", pygame.font.Font)
-        assign_if_valid(self, kwargs, "textColor", pygame.Color)
-        assign_if_valid(self, kwargs, "justificationType", str, "centered", validator=lambda x: x in ("centered", "absolute"))
-        assign_if_valid(self, kwargs, "xJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
-        assign_if_valid(self, kwargs, "yJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
-        assign_if_valid(self, kwargs, "lineSpacing", int, 4, validator=lambda x: validate_value(x, 0, 1**4))
+        assign_kwargs_if_valid(self, kwargs, "text", str)
+        assign_kwargs_if_valid(self, kwargs, "font", pygame.font.Font)
+        assign_kwargs_if_valid(self, kwargs, "textColor", pygame.Color)
+        assign_kwargs_if_valid(self, kwargs, "justificationType", str, "centered", validator=lambda x: x in ("centered", "absolute"))
+        assign_kwargs_if_valid(self, kwargs, "xJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
+        assign_kwargs_if_valid(self, kwargs, "yJustification", float, 0.5, validator=lambda x: validate_value(x, 0, 1))
+        assign_kwargs_if_valid(self, kwargs, "lineSpacing", int, 4, validator=lambda x: validate_value(x, 0, 1**4))
 
         size = self.font.size(self.text)
         if (size[0] > self.width or size[1] > self.height) and not self.ignoreTextOverflow:
@@ -261,7 +340,8 @@ class squircleButton(squircle, button):
                 raise ValueError("myFont and textColor must be provided if text is provided")
             self.setText(text, myFont, textColor)
         button.__init__(self, DISPLAYSURF, scenes, x, y, width, height,
-                        defaultImage=self.mySurface, onClickFunction=onClickFunction)
+                        defaultImage=self.mySurface, onClickFunction=onClickFunction,)
+
 
 # Initialize alarm objects
 currentAlarm: alarmObj | None
@@ -334,39 +414,33 @@ def setIgnoreNextPress() -> None:
     GeneralAlarmButton.ignoreNextPress = True
     HalifaxActionAlarmButton.ignoreNextPress = True
     resetFixTimeButton.ignoreNextPress = True
-
-def playHornFunc() -> None:
-    """
-    Plays the boat horn sound.
-    """
-    if boatHorn.get_num_channels() < 2:
-        boatHorn.play(loops=5, maxtime=(10**4 * 2), fade_ms=0)
-
-def stopHornFunc() -> None:
-    """
-    Stops the boat horn sound.
-    """
-    boatHorn.stop()
+    
+def shortHornFunc() -> None:
+    if len(hornQueue) < 4:
+        hornQueue.append("short")
+def longHornFunc() -> None:
+    if len(hornQueue) < 4:
+        hornQueue.append("long")
 
 # Create button objects
 alarmButtonWidth = (SCREEN_WIDTH / 3 - 2 * 30)
 alarmButtonY = SCREEN_HEIGHT / 2 - alarmButtonWidth / 2
 
-quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                    200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * RES_MULT, 30 * RES_MULT, 
+                    200 * RES_MULT, 100 * RES_MULT, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
 resetFixTimeButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                                    30 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                                    200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                                    30 * RES_MULT, 30 * RES_MULT, 
+                                    200 * RES_MULT, 100 * RES_MULT, 
                                     text=None, myFont=myFont, textColor=pygame.Color(0, 0, 0),
                                     borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(153, 204, 255),
-                                    onClickFunction=resetFixesAlarm, borderRadius = 30 * resolutionMultiplier)
+                                    onClickFunction=resetFixesAlarm, borderRadius = 30 * RES_MULT)
 
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                         (200 + 30 + 30) * resolutionMultiplier, 30 * resolutionMultiplier, 
-                         100 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                         (200 + 30 + 30) * RES_MULT, 30 * RES_MULT, 
+                         100 * RES_MULT, 100 * RES_MULT, 
                          defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
                          onClickFunction=toggleFixesAlarmMute)
 
@@ -374,31 +448,31 @@ DCSAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]],
                                 30 * 2, alarmButtonY, 
                                 alarmButtonWidth, alarmButtonWidth/3,
                                 text="DCS Alarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
-                                borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
-                                onClickFunction=DCSAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
-DCSAlarmButton.hoverImage = DCSAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
+                                borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(220, 0, 0),
+                                onClickFunction=DCSAlarmObj.playAlarm, borderRadius = 30 * RES_MULT)
+DCSAlarmButton.hoverImage = DCSAlarmButton.redraw(fillColor=pygame.Color(150, 150, 150)).copy()
 
 GeneralAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
                                     30 * 3 + alarmButtonWidth, alarmButtonY, 
                                     alarmButtonWidth, alarmButtonWidth/3, 
                                     text="General Alarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
-                                    borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
-                                    onClickFunction=GeneralAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
-GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
+                                    borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(220, 0, 0),
+                                    onClickFunction=GeneralAlarmObj.playAlarm, borderRadius = 30 * RES_MULT)
+GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(150, 150, 150)).copy()
 
 HalifaxActionAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
-                                          30 * 4 + alarmButtonWidth * 2, alarmButtonY, 
+                                          30 * 4 + alarmButtonWidth * 2, alarmButtonY,
                                           alarmButtonWidth, alarmButtonWidth/3,
                                           text="Action Stations", myFont=alarmFont, textColor=pygame.Color(0, 0, 0),
-                                          borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(255, 0, 0),
-                                          onClickFunction=HalifaxActionAlarmObj.playAlarm, borderRadius = 30 * resolutionMultiplier)
-HalifaxActionAlarmButton.hoverImage = HalifaxActionAlarmButton.redraw(fillColor=pygame.Color(169, 169, 169))
+                                          borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(220, 0, 0),
+                                          onClickFunction=HalifaxActionAlarmObj.playAlarm, borderRadius = 30 * RES_MULT)
+HalifaxActionAlarmButton.hoverImage = HalifaxActionAlarmButton.redraw(fillColor=pygame.Color(150, 150, 150)).copy()
 
-acknowledgeSize: tuple[float, float] = (60 * 1.7 * resolutionMultiplier, 80 * 1.7 * resolutionMultiplier)
+acknowledgeSize: tuple[float, float] = (60 * 1.7 * RES_MULT, 80 * 1.7 * RES_MULT)
 Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]], 
                              acknowledgeSize[0], acknowledgeSize[1], 
                              SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
-                             text="Acknowledge", myFont=pygame.font.Font(None, 500), textColor=pygame.Color(0, 0, 0),
+                             text="Acknowledge", myFont=pygame.font.Font(None, 160 * RES_MULT), textColor=pygame.Color(0, 0, 0),
                              borderColor=pygame.Color(0, 0, 0), fillColor=pygame.Color(200, 0, 0),
                              onClickFunction=stopAlarm)
 del acknowledgeSize
@@ -406,18 +480,35 @@ del acknowledgeSize
 setIgnoreNextPress()
 
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
-                               (1080 - 190) * resolutionMultiplier, (720 - 170) * resolutionMultiplier, 
-                               150 * resolutionMultiplier, 150 * resolutionMultiplier, 
+                               (1080 - 190) * RES_MULT, (720 - 170) * RES_MULT, 
+                               150 * RES_MULT, 150 * RES_MULT, 
                                defaultImage=image["toggleDayMode"], 
                                onClickFunction=toggleNightMode)
 
-hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 300, SCREEN_HEIGHT - 500, 
-                            700 * resolutionMultiplier, 160 * resolutionMultiplier,
-                            text="Horn", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
+hornQueueDisplay = squircleButton(DISPLAYSURF, [scenes["default"]], DCSAlarmButton.x, DCSAlarmButton.y + DCSAlarmButton.height + 35, 
+                            GeneralAlarmButton.x + GeneralAlarmButton.width - DCSAlarmButton.x, SCREEN_HEIGHT - (GeneralAlarmButton.y + GeneralAlarmButton.height + 150),
+                            text=None, myFont=pygame.font.Font(None, 500), textColor=pygame.Color(0, 0, 0),
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255), 
+                            borderRadius = 30 * RES_MULT, onClickFunction=None)
+
+
+shortHornBlast = squircleButton(DISPLAYSURF, [scenes["default"]], HalifaxActionAlarmButton.x, HalifaxActionAlarmButton.y + HalifaxActionAlarmButton.height + 35, 
+                            HalifaxActionAlarmButton.width, 120 * RES_MULT,
+                            text="Add Short Blast to Queue", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderRadius = 30 * RES_MULT,
                             borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
-                            onClickFunction=playHornFunc)
-hornButton.onReleaseFunction = stopHornFunc
-hornButton.clickedImage = hornButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+                            onClickFunction=shortHornFunc)
+shortHornBlast.clickedImage = shortHornBlast.redraw(fillColor=pygame.Color(100, 100, 100, 255)).copy()
+shortHornBlast.hoverImage = shortHornBlast.redraw(fillColor=pygame.Color(150, 150, 150)).copy()
+
+longHornBlast = squircleButton(DISPLAYSURF, [scenes["default"]], shortHornBlast.x, shortHornBlast.y + shortHornBlast.height + 35, 
+                            shortHornBlast.width, shortHornBlast.height,
+                            text="Add long Blast to Queue", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderRadius = 30 * RES_MULT,
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
+                            onClickFunction=longHornFunc)
+longHornBlast.clickedImage = longHornBlast.redraw(fillColor=pygame.Color(100, 100, 100, 255)).copy()
+longHornBlast.hoverImage = longHornBlast.redraw(fillColor=pygame.Color(150, 150, 150)).copy()
 
 # Finish defining alarm objects
 DCSAlarmObj.alarmButton = DCSAlarmButton
@@ -425,13 +516,36 @@ GeneralAlarmObj.alarmButton = GeneralAlarmButton
 HalifaxActionAlarmObj.alarmButton = HalifaxActionAlarmButton
 
 # Setup TPrint stuff
-fixesAlarmPrinter = TextPrint()
-fixesAlarmPrinter.reset()
-FPSPrinter = TextPrint()
-FPSPrinter.reset()
-FPSPrinter.font1 = pygame.font.Font(None, 20 * resolutionMultiplier)
-FPSPrinter.x = 10 * resolutionMultiplier
-FPSPrinter.y = 10 * resolutionMultiplier
+fixesAlarmPrinter = TextPrint(50 * RES_MULT, 50 * RES_MULT, pygame.font.Font(None, 90 * RES_MULT), pygame.Color(0, 0, 0), lineSpacing = None)
+FPSPrinter = TextPrint(10 * RES_MULT, 10 * RES_MULT, pygame.font.Font(None, 20 * RES_MULT), pygame.Color(0, 0, 0), lineSpacing = None)
+hornQueueWriter = TextPrint(hornQueueDisplay.x + 30 * RES_MULT, hornQueueDisplay.y + 30 * RES_MULT, pygame.font.Font(None, 50 * RES_MULT), pygame.Color(0, 0, 0), lineSpacing = 0 * RES_MULT)
+def updateHornQueueDisplay() -> None:
+    """
+    Updates the horn queue display.
+    """
+    global hornQueue
+    global hornPlaying
+    global waitTime
+    hornQueueWriter.reset()
+    #print(f"{hornQueue} : {hornPlaying} - {shortHornSound.get_num_channels()} - {longHornSound.get_num_channels()}")
+    if shortHornSound.get_num_channels() == 0 and longHornSound.get_num_channels() == 0 and hornPlaying in ("short", "long"):
+        hornPlaying = ""
+        waitTime = time.time()
+        
+    if hornQueue and hornPlaying == "" and time.time() > waitTime + 1:
+        hornPlaying = hornQueue.pop(0)
+        if hornPlaying == "short":
+            shortHornSound.play()
+        elif hornPlaying == "long":
+            longHornSound.play()
+    if hornPlaying:
+        hornQueueWriter.tprint(DISPLAYSURF, "Horn Playing:")
+        hornQueueWriter.indent(1)
+        hornQueueWriter.tprint(DISPLAYSURF, hornPlaying)
+    hornQueueWriter.tprint(DISPLAYSURF, "Horn Queue:")
+    hornQueueWriter.indent(1)
+    hornQueueWriter.tprint(DISPLAYSURF, hornQueue)
+
 
 # Control which events are allowed on the queue
 pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
@@ -441,14 +555,14 @@ pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
 # Main control loop
 while __name__ == "__main__":
     hasOnClickFunction: list = []
-    hasOnReleaseFunction: list = []
+    #hasOnReleaseFunction: list = []
     for object in scenes[scene]:
         if hasattr(object, "onClickFunction"):
             if object.onClickFunction:
                 hasOnClickFunction.append(object)
-        if hasattr(object, "onReleaseFunction"):
-            if object.onReleaseFunction:
-                hasOnReleaseFunction.append(object)
+        # if hasattr(object, "onReleaseFunction"):
+        #     if object.onReleaseFunction:
+        #         hasOnReleaseFunction.append(object)
 
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
@@ -476,11 +590,11 @@ while __name__ == "__main__":
                 scenes["default"].insert(0, quitButton)
                 scenes["acknowledge"].insert(0, quitButton)
                 quitButton.ignoreNextPress = True
-        elif event.type == pygame.MOUSEBUTTONUP:
-            for thisIntractable in hasOnReleaseFunction:
-                if thisIntractable.myRect.collidepoint(event.pos):
-                    thisIntractable.onReleaseFunction()
-                    hasOnReleaseFunction.remove(thisIntractable)
+        # elif event.type == pygame.MOUSEBUTTONUP:
+        #     for thisIntractable in hasOnReleaseFunction:
+        #         if thisIntractable.myRect.collidepoint(event.pos):
+        #             thisIntractable.onReleaseFunction()
+        #             hasOnReleaseFunction.remove(thisIntractable)
 
     if nightMode:
         DISPLAYSURF.fill("#202525")  # set background colour to night mode
@@ -492,6 +606,8 @@ while __name__ == "__main__":
     # renders all objects in the current scene
     for object in scenes[scene]:
         object.process(None)
+
+    updateHornQueueDisplay()
 
     # updates fixes alarm time values every few frames
     if alarmTimeCounter >= FPS / alarmTimeFPS:

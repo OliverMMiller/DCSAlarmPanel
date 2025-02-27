@@ -5,6 +5,9 @@ import pygame
 from typing import Callable
 
 class button():
+    """
+    Class for creating buttons in pygame
+    """    
     def updateImages(self, defaultImage: pygame.surface.Surface, 
                      hoverImage: pygame.surface.Surface | None = None, 
                      clickedImage: pygame.surface.Surface | None = None):
