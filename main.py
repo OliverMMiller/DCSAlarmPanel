@@ -26,9 +26,9 @@ pygame.mixer.music.set_volume(1.00)
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.5)
 longHornSound = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
-longHornSound.set_volume(1.00)
-shortHornSound = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
-shortHornSound.set_volume(1.00)
+longHornSound.set_volume(0.80)
+shortHornSound = pygame.mixer.Sound("sound/BoatHornHigher PE905302_preview.mp3")
+shortHornSound.set_volume(0.80)
 
 # Setting up fonts
 hornFont = pygame.font.Font(None, 33 * RES_MULT)
@@ -532,7 +532,7 @@ def updateHornQueueDisplay() -> None:
         hornPlaying = ""
         waitTime = time.time()
         
-    if hornQueue and hornPlaying == "" and time.time() > waitTime + 1:
+    if hornQueue and hornPlaying == "" and time.time() > waitTime:# + 0.3:
         hornPlaying = hornQueue.pop(0)
         if hornPlaying == "short":
             shortHornSound.play()
