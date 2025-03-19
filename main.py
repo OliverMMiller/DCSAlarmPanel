@@ -3,8 +3,9 @@ import sys
 import pygame
 import time
 from pygame.locals import QUIT
-from typing import NewType
+from typing import Callable
 from OliversButtonModule import button as button
+from OliversSquircleModule import squircle as squircle
 
 # Initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
@@ -130,108 +131,37 @@ def stopAlarm() -> None:
         nextScene = "default"
         setIgnoreNextPress()
 
-ValueInRange = NewType('ValueInRange', float)
-
-def validate_value(value: float, min: float, max: float) -> ValueInRange:
-    """
-    Validates if a value is within a specified range.
-    """
-    if min <= value <= max:
-        return ValueInRange(value)
-    else:
-        raise ValueError(f"Value {value} is out of the accepted range ({min}-{max})")
-
-class squircle:
-    """
-    Class to represent a squircle shape.
-    """
-    def __init__(self, width, height, borderColor: pygame.Color | None, fillColor: pygame.Color | None):
-        self.width = width
-        self.height = height
-        self.borderColor = borderColor
-        self.fillColor = fillColor
-        self.ignoreTextOverflow = False
-        self.mySurface = pygame.Surface((width, height), flags=pygame.SRCALPHA)
-        self.borderWidth = 3 * resolutionMultiplier
-        self.borderRadius = 50 * resolutionMultiplier
-        if not (self.borderColor and self.fillColor):
-            raise ValueError("borderColor and/or fillColor must be provided")
-        rect2 = pygame.Rect(self.borderWidth, self.borderWidth, self.width - (self.borderWidth * 2), self.height - (self.borderWidth * 2))
-        if self.fillColor:
-            pygame.draw.rect(self.mySurface, self.fillColor, rect2, 0, self.borderRadius)
-        if self.borderColor:
-            pygame.draw.rect(self.mySurface, self.borderColor, rect2, self.borderWidth, self.borderRadius)
-
-    def updateText(self, **kwargs) -> None:
-        """
-        Updates the text on the squircle.
-        """
-        if "text" in kwargs and isinstance(kwargs["text"], str):
-            self.text = kwargs["text"]
-        if "font" in kwargs and isinstance(kwargs["font"], pygame.font.Font):
-            self.font = kwargs["font"]
-        if "textColor" in kwargs and isinstance(kwargs["textColor"], pygame.Color):
-            self.textColor = kwargs["textColor"]
-        if "justificationType" in kwargs and kwargs["justificationType"] in ("centered", "absolute"):
-            self.justificationType = kwargs["justificationType"]
-        if "xJustification" in kwargs:
-            self.xJustification = validate_value(kwargs["xJustification"], 0, 1)
-        if "yJustification" in kwargs:
-            self.yJustification = validate_value(kwargs["yJustification"], 0, 1)
-
-        size = self.font.size(self.text)
-        if (size[0] > self.width or size[1] > self.height) and not self.ignoreTextOverflow:
-            raise ValueError(f"Text too large to fit in squircle\nText: {self.text}")
-        if self.justificationType == "centered":
-            x = self.width * self.xJustification - size[0] / 2
-            y = self.height * self.yJustification - size[1] / 2
-        if self.justificationType == "absolute":
-            x = self.xJustification
-            y = self.yJustification
-        self.mySurface.blit(self.font.render(self.text, True, self.textColor), (x, y))
-
-    def setText(self, text: str, font: pygame.font.Font, color: pygame.Color, 
-                justificationType: str = "centered", 
-                xJustification: float = 0.5, yJustification: float = 0.5) -> None:
-        """
-        Sets the text on the squircle.
-        """
-        self.text = text
-        self.font = font
-        self.textColor = color
-        self.justificationType = justificationType
-        self.xJustification = validate_value(xJustification, 0, 1)
-        self.yJustification = validate_value(yJustification, 0, 1)
-        self.updateText()
-
-    def redraw(self, **kwargs) -> pygame.Surface:
-        """
-        Redraws the squircle with updated properties.
-        """
-        for arg in kwargs:
-            if arg in ("width", "height", "borderColor", "fillColor", "borderWidth", "borderRadius"):
-                setattr(self, arg, kwargs[arg])
-
-        if not (self.borderColor and self.fillColor):
-            raise ValueError("borderColor and/or fillColor must be provided")
-        rect2 = pygame.Rect(self.borderWidth, self.borderWidth, self.width - (self.borderWidth * 2), self.height - (self.borderWidth * 2))
-        if self.fillColor:
-            pygame.draw.rect(self.mySurface, self.fillColor, rect2, 0, self.borderRadius)
-        if self.borderColor:
-            pygame.draw.rect(self.mySurface, self.borderColor, rect2, self.borderWidth, self.borderRadius)
-
-        self.updateText()
-        return self.mySurface
-
 class squircleButton(squircle, button):
     """
     Class to represent a button with a squircle shape.
     """
-    def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x, y, width: int, height: int,
+    def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x: int, y: int, width: int, height: int,
                  text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
                  borderColor: pygame.Color | None, fillColor: pygame.Color | None,
-                 onClickFunction) -> None:
-        squircle.__init__(self, width, height, borderColor, fillColor)
+                 onClickFunction: Callable,
+                 borderRadius: int = 50*resolutionMultiplier, borderWidth: int = 3*resolutionMultiplier,) -> None:
+        """_summary_
+
+        Args:
+            DISPLAYSURF (pygame.Surface): surface to draw self onto when process is called
+            scenes (list): scenes to add self
+            x (int): distance from left of screen
+            y (int): distance from top of screen
+            width (int): width of self
+            height (int): height of self
+            text (str | None): text to display on button
+            myFont (pygame.font.Font | None): font of text
+            textColor (pygame.Color | None): text color
+            borderColor (pygame.Color | None): border color
+            fillColor (pygame.Color | None): fill color
+            onClickFunction (Callable): function to run when button clicked
+            borderRadius (int, optional): corner radius. Defaults to 50*resolutionMultiplier.
+            borderWidth (int, optional): border width. Defaults to 3*resolutionMultiplier.
+
+        Raises:
+            ValueError: _description_
+        """        
+        squircle.__init__(self, width, height, fillColor, borderRadius, borderWidth, borderColor=borderColor)
         if text:
             if not (myFont and textColor):
                 raise ValueError("myFont and textColor must be provided if text is provided")
@@ -416,9 +346,9 @@ while __name__ == "__main__":
         if hasattr(object, "onClickFunction"):
             if object.onClickFunction:
                 hasOnClickFunction.append(object)
-        if hasattr(object, "onReleaseFunction"):
-            if object.onReleaseFunction:
-                hasOnReleaseFunction.append(object)
+                if hasattr(object, "onReleaseFunction"):
+                    if object.onReleaseFunction:
+                        hasOnReleaseFunction.append(object)
 
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
