@@ -16,10 +16,9 @@ pygame.mixer.init()
 WHITE = (255, 255, 255)
 
 # Setting up screen
-SCREEN_WIDTH = 1080
-SCREEN_HEIGHT = 720
-DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED))  # | pygame.NOFRAME  pygame.RESIZABLE
+DISPLAYSURF = pygame.display.set_mode((0, 0), (pygame.FULLSCREEN))  # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('Horn Button')
+SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
