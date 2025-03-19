@@ -16,11 +16,10 @@ pygame.mixer.init()
 WHITE = (255, 255, 255)
 
 # Setting up screen
-resolutionMultiplier = 3
-SCREEN_WIDTH = 1080 * resolutionMultiplier
-SCREEN_HEIGHT = 720 * resolutionMultiplier
-DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED))  # | pygame.NOFRAME  pygame.RESIZABLE
+DISPLAYSURF = pygame.display.set_mode((0, 0), (pygame.FULLSCREEN))
 pygame.display.set_caption('DCS Alarm Panel')
+SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
+DISPLAY_RECT = pygame.Rect(DISPLAYSURF.get_rect())
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
@@ -30,7 +29,7 @@ boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
 boatHorn.set_volume(1.00)
 
 # Setting up fonts
-hornFont = pygame.font.Font(None, 100 * resolutionMultiplier)
+hornFont = pygame.font.Font(None, 100)
 myFont = pygame.font.SysFont('Arial', 50)
 
 # Original alarms (commented out for now)
@@ -78,7 +77,7 @@ class TextPrint:
     """
     def __init__(self):
         self.reset()
-        self.font1 = pygame.font.Font(None, 90 * resolutionMultiplier)
+        self.font1 = pygame.font.Font(None, 90)
 
     def tprint(self, screen, text, moveDown=False) -> None:
         """
@@ -93,9 +92,9 @@ class TextPrint:
         """
         Resets the text position.
         """
-        self.x = 50 * resolutionMultiplier
-        self.y = 50 * resolutionMultiplier
-        self.line_height = 80 * resolutionMultiplier
+        self.x = 50
+        self.y = 50
+        self.line_height = 80
 
 class alarmObj:
     """
@@ -139,7 +138,7 @@ class squircleButton(squircle, button):
                  text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
                  borderColor: pygame.Color | None, fillColor: pygame.Color | None,
                  onClickFunction: Callable,
-                 borderRadius: int = 50*resolutionMultiplier, borderWidth: int = 3*resolutionMultiplier,) -> None:
+                 borderRadius: int = 50, borderWidth: int = 3,) -> None:
         """_summary_
 
         Args:
@@ -155,8 +154,8 @@ class squircleButton(squircle, button):
             borderColor (pygame.Color | None): border color
             fillColor (pygame.Color | None): fill color
             onClickFunction (Callable): function to run when button clicked
-            borderRadius (int, optional): corner radius. Defaults to 50*resolutionMultiplier.
-            borderWidth (int, optional): border width. Defaults to 3*resolutionMultiplier.
+            borderRadius (int, optional): corner radius. Defaults to 50.
+            borderWidth (int, optional): border width. Defaults to 3.
 
         Raises:
             ValueError: _description_
@@ -258,20 +257,20 @@ def stopHornFunc() -> None:
 alarmButtonWidth = (SCREEN_WIDTH / 3 - 2 * 30)
 alarmButtonY = SCREEN_HEIGHT / 2 - alarmButtonWidth / 2
 
-quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                    200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230, 30, 
+                    200, 100, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
 resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                            30 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                            200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                            30, 30, 
+                            200, 100, 
                             pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
                             onClickFunction=resetFixesAlarm)
 
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                         (200 + 30 + 30) * resolutionMultiplier, 30 * resolutionMultiplier, 
-                         100 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                         (200 + 30 + 30), 30, 
+                         100, 100, 
                          defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
                          onClickFunction=toggleFixesAlarmMute)
 
@@ -296,7 +295,7 @@ HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]],
                                   hoverImage=pygame.image.load("images/Action-Gray.png").convert_alpha(),
                                   onClickFunction=HalifaxActionAlarmObj.playAlarm)
 
-acknowledgeSize: tuple[float, float] = (60 * 1.7 * resolutionMultiplier, 80 * 1.7 * resolutionMultiplier)
+acknowledgeSize: tuple[float, float] = (60 * 1.7, 80 * 1.7)
 Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
                      acknowledgeSize[0], acknowledgeSize[1], 
                      SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
@@ -306,13 +305,13 @@ del acknowledgeSize
 setIgnoreNextPress()
 
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
-                               (1080 - 190) * resolutionMultiplier, (720 - 170) * resolutionMultiplier, 
-                               150 * resolutionMultiplier, 150 * resolutionMultiplier, 
+                               (1080 - 190), (720 - 170), 
+                               150, 150, 
                                defaultImage=image["toggleDayMode"], 
                                onClickFunction=toggleNightMode)
 
-hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 300, SCREEN_HEIGHT - 500, 
-                            700 * resolutionMultiplier, 160 * resolutionMultiplier,
+
+hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], rect,
                             text="Horn", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
                             borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
                             onClickFunction=playHornFunc)
@@ -329,9 +328,9 @@ fixesAlarmPrinter = TextPrint()
 fixesAlarmPrinter.reset()
 FPSPrinter = TextPrint()
 FPSPrinter.reset()
-FPSPrinter.font1 = pygame.font.Font(None, 20 * resolutionMultiplier)
-FPSPrinter.x = 10 * resolutionMultiplier
-FPSPrinter.y = 10 * resolutionMultiplier
+FPSPrinter.font1 = pygame.font.Font(None, 20)
+FPSPrinter.x = 10
+FPSPrinter.y = 10
 
 # Control which events are allowed on the queue
 pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,

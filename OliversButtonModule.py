@@ -1,4 +1,4 @@
-#Version 2.1
+#Version 3.0
 #with event based button function execution
 #author: OliverMMiller
 import pygame
@@ -9,17 +9,17 @@ class button():
                      hoverImage: pygame.surface.Surface | None = None, 
                      clickedImage: pygame.surface.Surface | None = None):
         
-        self.defaultImage = pygame.transform.scale((defaultImage),(self.width, self.height))
+        self.defaultImage = pygame.transform.scale((defaultImage),(self.myRect.width, self.myRect.height))
         if hoverImage == None:
             self.hoverImage = self.defaultImage.copy()
         else:
-            self.hoverImage = pygame.transform.scale((hoverImage),(self.width, self.height))
+            self.hoverImage = pygame.transform.scale((hoverImage),(self.myRect.width, self.myRect.height))
         if clickedImage == None:
             self.clickedImage = self.hoverImage.copy()
         else:
-            self.clickedImage = pygame.transform.scale((clickedImage),(self.width, self.height))
+            self.clickedImage = pygame.transform.scale((clickedImage),(self.myRect.width, self.myRect.height))
 
-    def __init__(self, DISPLAYSURF: pygame.surface.Surface, parentScenes: list, x: int, y: int, width: int, height: int,
+    def __init__(self, DISPLAYSURF: pygame.surface.Surface, parentScenes: list, myRect: pygame.Rect,
                  defaultImage: pygame.surface.Surface, hoverImage: pygame.surface.Surface | None = None, clickedImage: pygame.surface.Surface | None = None,
                  onClickFunction: Callable = None, runFuncOnce: bool = True):
         """
@@ -28,10 +28,7 @@ class button():
             
         Args:
             parentScenes (list): scenes to add self to
-            x (int): x cord
-            y (int): y cord
-            width (int): button width
-            height (int): button height
+            myRect (pygame.Rect): Rect for this button
             defaultImage (pygame.surface.Surface): default image to display
             hoverImage (pygame.surface.Surface | None, optional): image to display on hover. Defaults to defaultImage.
             clickedImage (pygame.surface.Surface | None, optional): image to display on click. Defaults to defaultImage.
@@ -39,10 +36,7 @@ class button():
             runFuncOnce (bool, optional): if false onclickFunction will run every time process() is called. Defaults to True.
         """
         self.DISPLAYSURF = DISPLAYSURF
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+
         self.onClickFunction = onClickFunction
         self.onReleaseFunction = None
         self.runFuncOnce = runFuncOnce
@@ -52,8 +46,7 @@ class button():
 
         self.updateImages(defaultImage, hoverImage, clickedImage)
         
-        self.myRect = self.defaultImage.get_rect()
-        self.myRect.update((self.x, self.y),(self.width, self.height))
+        self.myRect = myRect
 
         for num in range(len(parentScenes)):
             parentScenes[num].insert(0,self)
