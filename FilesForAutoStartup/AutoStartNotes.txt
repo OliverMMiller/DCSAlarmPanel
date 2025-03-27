@@ -1,3 +1,8 @@
+After initial download:
+horn.service Needs to be moved to /lib/systemd/system/
+StartHornButton.sh Needs to be moved to /home/donfigol/Desktop/
+
+
 #edit systemd service file (runs at startup)
 sudo nano /lib/systemd/system/horn.service
 # Run after editing
@@ -6,6 +11,7 @@ sudo systemctl daemon-reload
 
 sudo systemctl enable horn.service
 sudo systemctl start horn.service
+sudo systemctl stop horn.service
 
 #edit startup script
 nano /home/donfigol/Desktop/StartHornButton.sh
@@ -17,3 +23,6 @@ sudo su -c /home/donfigol/Desktop/StartHornButton.sh donfigol
 #kill processes through ssh terminal
 sudo ps -ax | grep python
 sudo kill <PID>
+
+#cpu temp:
+vcgencmd measure_temp
