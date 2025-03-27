@@ -1,0 +1,15 @@
+[Unit]
+Description=Start horn button
+
+[Service]
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/bin/bash -c 'sudo su -c /home/donfigol/Desktop/StartHornButton.sh donfigol > /home/donfigol/dcsalarmpanel/horntest.log 2>&1'
+Restart=always
+RestartSec=20s
+KillMode=process
+TimeoutSec=infinity
+
+[Install]
+WantedBy=graphical.target
+
