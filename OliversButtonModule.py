@@ -58,8 +58,8 @@ class button():
         for num in range(len(parentScenes)):
             parentScenes[num].insert(0,self)
 
-    def __repr__(self):
-        return self.__name__
+    # def __repr__(self):
+    #     return self.__name__
             
     def process(self, mousePos: tuple[int,int] | None) -> None:
         """

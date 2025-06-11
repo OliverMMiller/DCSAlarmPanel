@@ -25,6 +25,9 @@ pygame.mixer.music.set_volume(1.00)
 boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
 boatHorn.set_volume(1.00)
 
+waterSplash = pygame.mixer.Sound("sound/waterSplash.mp3")
+waterSplash.set_volume(0.70)
+
 # Setting up fonts
 hornFont = pygame.font.Font(None, 200)
 
@@ -123,17 +126,34 @@ def stopHornFunc() -> None:
     Stops the boat horn sound.
     """
     boatHorn.stop()
+    
+def playSplashFunc() -> None:
+    """
+    Plays the water splash sound.
+    """
+    waterSplash.set_volume(min((pygame.mouse.get_pos()[0] - splashButton.x) / splashButton.width, 1))
+    if waterSplash.get_num_channels() <= 1:
+        waterSplash.play()
 
 # Create button objects
 
 hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 50, 50, 
-                            SCREEN_WIDTH - 100, SCREEN_HEIGHT - 100,
+                            SCREEN_WIDTH - 100, 300,
                             text="Horn", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
                             borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
                             borderRadius = 100, onClickFunction=playHornFunc)
 hornButton.onReleaseFunction = stopHornFunc
 hornButton.clickedImage = hornButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
 
+splashButton = squircleButton(DISPLAYSURF, [scenes["default"]], 50, hornButton.y + hornButton.height + 50, 
+                            SCREEN_WIDTH - 100, 300,
+                            text="Splash", myFont=hornFont, textColor=pygame.Color("#FFFFFF"), 
+                            borderColor=pygame.Color("#000000"), fillColor=pygame.Color("#2624B4"),
+                            borderRadius = 100, onClickFunction=playSplashFunc)
+splashButton.clickedImage = splashButton.redraw(fillColor="#071350")
+
+
+buttons = [hornButton,splashButton]
 
 # Setup TPrint stuff
 fixesAlarmPrinter = TextPrint()
@@ -163,9 +183,18 @@ while __name__ == "__main__":
         elif event.type == pygame.WINDOWCLOSE:
             quitFunc()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            hornButton.onClickFunction()
+            for thisButton in buttons:
+                if thisButton.myRect.collidepoint(event.pos):
+                    if not thisButton.ignoreNextPress:
+                        if not thisButton.alreadyPressed or not thisButton.runFuncOnce:
+                            thisButton.alreadyPressed = True
+                            thisButton.onClickFunction()
         elif event.type == pygame.MOUSEBUTTONUP:
-            hornButton.onReleaseFunction()
+            for thisButton in buttons:
+                thisButton.alreadyPressed = False
+                if thisButton.myRect.collidepoint(event.pos):
+                    if thisButton.onReleaseFunction is not None:
+                        thisButton.onReleaseFunction()
 
     if nightMode:
         DISPLAYSURF.fill("#202525")  # set background colour to night mode
@@ -173,7 +202,8 @@ while __name__ == "__main__":
         DISPLAYSURF.fill("#d0d0d0")  # set background colour to day mode
 
     # renders button
-    hornButton.process(None)
+    for thisButton in buttons:
+        thisButton.process(None)
 
     # FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")
     # FPSPrinter.tprint(DISPLAYSURF, F"                     mspt:{FramePerSec.get_time()} ")

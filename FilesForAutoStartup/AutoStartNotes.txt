@@ -15,10 +15,11 @@ sudo systemctl stop horn.service
 
 #edit startup script
 nano /home/donfigol/Desktop/StartHornButton.sh
+nano /home/donfigol/Desktop/launcher.sh
 
 # Command to run startup script
 sudo su -c /home/donfigol/Desktop/StartHornButton.sh donfigol
-
+sudo su -c /home/donfigol/Desktop/launcher.sh donfigol
 
 #kill processes through ssh terminal
 sudo ps -ax | grep python
@@ -26,3 +27,6 @@ sudo kill <PID>
 
 #cpu temp:
 vcgencmd measure_temp
+
+#view log
+nano DCSAlarmPanel/PanelTest.log
