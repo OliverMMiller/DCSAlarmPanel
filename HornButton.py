@@ -49,12 +49,13 @@ class TextPrint:
     def __init__(self):
         self.reset()
         self.font1 = pygame.font.Font(None, 90)
+        self.color = pygame.Color(0, 0, 0)
 
     def tprint(self, screen, text, moveDown=False) -> None:
         """
         Prints text on the screen.
         """
-        text_bitmap = self.font1.render(text, True, (0, 0, 0))
+        text_bitmap = self.font1.render(text, True, self.color)
         screen.blit(text_bitmap, (self.x, self.y))
         if moveDown:
             self.y += self.line_height
@@ -113,6 +114,9 @@ def quitFunc() -> None:
     """
     pygame.quit()
     sys.exit()
+    
+def weightedAverage(a: float, b: float, weight: float) -> float:
+    return (a * weight + b * (1 - weight))
 
 def playHornFunc() -> None:
     """
@@ -131,8 +135,14 @@ def playSplashFunc() -> None:
     """
     Plays the water splash sound.
     """
-    waterSplash.set_volume(min((pygame.mouse.get_pos()[0] - splashButton.x) / splashButton.width, 1))
-    if waterSplash.get_num_channels() <= 1:
+    NumSplashes = waterSplash.get_num_channels()
+    if NumSplashes > 1:
+        waterSplash.set_volume(min(weightedAverage((pygame.mouse.get_pos()[0] - splashButton.x) / splashButton.width,
+                                               waterSplash.get_volume(), 0.6), 
+                                   0.9)) # This is the maximum volume for the splash sound
+    else:
+        waterSplash.set_volume(min((pygame.mouse.get_pos()[0] - splashButton.x) / splashButton.width, 1))
+    if NumSplashes < 5:
         waterSplash.play()
 
 # Create button objects
@@ -156,8 +166,13 @@ splashButton.clickedImage = splashButton.redraw(fillColor="#071350")
 buttons = [hornButton,splashButton]
 
 # Setup TPrint stuff
-fixesAlarmPrinter = TextPrint()
-fixesAlarmPrinter.reset()
+GUI = TextPrint()
+GUI.reset()
+GUI.font1 = pygame.font.Font(None, 70)
+GUI.color = pygame.Color("#FFFFFF")
+splashButtonText = "Quiet        <--             -->        Loud"
+GUI.x = splashButton.x + int(splashButton.width/2) - GUI.font1.size(splashButtonText)[0]/2
+GUI.y = splashButton.y + splashButton.height - GUI.font1.size(splashButtonText)[1] - 25
 FPSPrinter = TextPrint()
 FPSPrinter.reset()
 FPSPrinter.font1 = pygame.font.Font(None, 20)
@@ -204,6 +219,9 @@ while __name__ == "__main__":
     # renders button
     for thisButton in buttons:
         thisButton.process(None)
+    
+    GUI.tprint(DISPLAYSURF, splashButtonText, moveDown=False)
+
 
     # FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")
     # FPSPrinter.tprint(DISPLAYSURF, F"                     mspt:{FramePerSec.get_time()} ")
