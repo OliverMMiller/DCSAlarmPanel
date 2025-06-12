@@ -7,6 +7,8 @@ from typing import Callable
 from OliversButtonModule import button as button
 from OliversSquircleModule import squircle as squircle
 
+from generateUniqueHornSound import pitch_shift
+
 # Initializing pygame and mixer
 pygame.mixer.pre_init(frequency=48000, buffer=2048)
 pygame.init()
@@ -22,8 +24,10 @@ SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
-boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
+boatHorn = pygame.mixer.Sound("sound/shipHorn.wav")
 boatHorn.set_volume(1.00)
+newHorn = boatHorn
+newHorn.set_volume(1.00)
 
 waterSplash = pygame.mixer.Sound("sound/waterSplash.mp3")
 waterSplash.set_volume(0.70)
@@ -118,18 +122,24 @@ def quitFunc() -> None:
 def weightedAverage(a: float, b: float, weight: float) -> float:
     return (a * weight + b * (1 - weight))
 
+
 def playHornFunc() -> None:
     """
     Plays the boat horn sound.
     """
-    if boatHorn.get_num_channels() < 2:
-        boatHorn.play(loops=5, maxtime=(10**4 * 2), fade_ms=0)
+    global newHorn
+    newHorn = pitch_shift(boatHorn , semitonesList[int(((pygame.mouse.get_pos()[0] - hornButton.x)) // semitoneSectionWidth)])
+    
+    if newHorn.get_num_channels() < 2:
+        newHorn.play(loops=5, maxtime=(10**4 * 2), fade_ms=0)
+
 
 def stopHornFunc() -> None:
     """
     Stops the boat horn sound.
     """
-    boatHorn.stop()
+    #print("Stopping horn sound")
+    newHorn.stop()
     
 def playSplashFunc() -> None:
     """
@@ -146,6 +156,8 @@ def playSplashFunc() -> None:
         waterSplash.play()
 
 # Create button objects
+
+
 
 hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 50, 50, 
                             SCREEN_WIDTH - 100, 300,
@@ -165,14 +177,25 @@ splashButton.clickedImage = splashButton.redraw(fillColor="#071350")
 
 buttons = [hornButton,splashButton]
 
+#Unicorn stuff
+
+semitonesList = [-1, 0, 2, 4, 6, 13, 16, 20]
+semitoneSectionWidth = hornButton.width / len(semitonesList)  # Calculate the width of each semitone segment
+
+
+
 # Setup TPrint stuff
-GUI = TextPrint()
-GUI.reset()
-GUI.font1 = pygame.font.Font(None, 70)
-GUI.color = pygame.Color("#FFFFFF")
+hornExtraText = TextPrint()
+hornExtraText.reset()
+hornExtraText.font1 = pygame.font.Font(None, 25)
+hornExtraText.color = pygame.Color("#000000")
+SplashExtraText = TextPrint()
+SplashExtraText.reset()
+SplashExtraText.font1 = pygame.font.Font(None, 70)
+SplashExtraText.color = pygame.Color("#FFFFFF")
 splashButtonText = "Quiet        <--             -->        Loud"
-GUI.x = splashButton.x + int(splashButton.width/2) - GUI.font1.size(splashButtonText)[0]/2
-GUI.y = splashButton.y + splashButton.height - GUI.font1.size(splashButtonText)[1] - 25
+SplashExtraText.x = int(splashButton.x + int(splashButton.width/2) - SplashExtraText.font1.size(splashButtonText)[0]/2)
+SplashExtraText.y = splashButton.y + splashButton.height - SplashExtraText.font1.size(splashButtonText)[1] - 25
 FPSPrinter = TextPrint()
 FPSPrinter.reset()
 FPSPrinter.font1 = pygame.font.Font(None, 20)
@@ -203,12 +226,12 @@ while __name__ == "__main__":
                     if not thisButton.ignoreNextPress:
                         if not thisButton.alreadyPressed or not thisButton.runFuncOnce:
                             thisButton.alreadyPressed = True
-                            thisButton.onClickFunction()
+                            if thisButton.onClickFunction is not None:
+                                thisButton.onClickFunction()
         elif event.type == pygame.MOUSEBUTTONUP:
             for thisButton in buttons:
                 thisButton.alreadyPressed = False
-                if thisButton.myRect.collidepoint(event.pos):
-                    if thisButton.onReleaseFunction is not None:
+                if thisButton.onReleaseFunction is not None:
                         thisButton.onReleaseFunction()
 
     if nightMode:
@@ -219,8 +242,15 @@ while __name__ == "__main__":
     # renders button
     for thisButton in buttons:
         thisButton.process(None)
+
+    for i in range(len(semitonesList)-1):
+        hornExtraText.x = int((i+1) * semitoneSectionWidth + hornButton.x)
+        hornExtraText.y = hornButton.y + 4
+        hornExtraText.tprint(DISPLAYSURF, "|", moveDown=False)
+        hornExtraText.y = hornButton.y + hornButton.height - hornExtraText.font1.size("Horn")[1] - 4
+        hornExtraText.tprint(DISPLAYSURF, "|", moveDown=False)
     
-    GUI.tprint(DISPLAYSURF, splashButtonText, moveDown=False)
+    SplashExtraText.tprint(DISPLAYSURF, splashButtonText, moveDown=False)
 
 
     # FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")

@@ -21,7 +21,7 @@ class button():
 
     def __init__(self, DISPLAYSURF: pygame.surface.Surface, parentScenes: list, x: int, y: int, width: int, height: int,
                  defaultImage: pygame.surface.Surface, hoverImage: pygame.surface.Surface | None = None, clickedImage: pygame.surface.Surface | None = None,
-                 onClickFunction: Callable = None, runFuncOnce: bool = True):
+                 onClickFunction: Callable | None = None, runFuncOnce: bool = True, onReleaseFunction: Callable | None = None):
         """
         Dependencies:
             pygame
@@ -44,7 +44,7 @@ class button():
         self.width = width
         self.height = height
         self.onClickFunction = onClickFunction
-        self.onReleaseFunction = None
+        self.onReleaseFunction = onReleaseFunction
         self.runFuncOnce = runFuncOnce
         
         self.ignoreNextPress = False

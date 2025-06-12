@@ -26,7 +26,7 @@ pygame.display.set_caption('DCS Alarm Panel')
 pygame.mixer.music.set_volume(1.00)
 Notify = pygame.mixer.Sound("sound/Notify.wav")
 Notify.set_volume(0.5)
-boatHorn = pygame.mixer.Sound("sound/BOATHorn_Horn of a ship 1.wav")
+boatHorn = pygame.mixer.Sound("sound/shipHorn.wav")
 boatHorn.set_volume(1.00)
 
 # Setting up fonts
