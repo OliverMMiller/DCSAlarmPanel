@@ -79,15 +79,17 @@ class TextPrint:
     def __init__(self):
         self.reset()
         self.font1 = pygame.font.Font(None, 90 * resolutionMultiplier)
+        self.color = pygame.Color(0, 0, 0)
 
     def tprint(self, screen, text, moveDown=False) -> None:
         """
         Prints text on the screen.
         """
-        text_bitmap = self.font1.render(text, True, (0, 0, 0))
-        screen.blit(text_bitmap, (self.x, self.y))
-        if moveDown:
-            self.y += self.line_height
+        for i in text.splitlines():
+            text_bitmap = self.font1.render(i, True, self.color)
+            screen.blit(text_bitmap, (self.x, self.y))
+            if moveDown:
+                self.y += self.line_height
 
     def reset(self) -> None:
         """
@@ -172,10 +174,6 @@ class squircleButton(squircle, button):
 # Initialize alarm objects
 currentAlarm: alarmObj | None
 
-# Need to partly define alarm objects before defining buttons
-DCSAlarmObj = alarmObj(None, DCSAlarm)
-GeneralAlarmObj = alarmObj(None, GeneralAlarm)
-HalifaxActionAlarmObj = alarmObj(None, HalifaxActionAlarm)
 
 # Define functions
 def quitFunc() -> None:
@@ -255,8 +253,8 @@ def stopHornFunc() -> None:
     boatHorn.stop()
 
 # Create button objects
-alarmButtonWidth = (SCREEN_WIDTH / 3 - 2 * 30)
-alarmButtonY = SCREEN_HEIGHT / 2 - alarmButtonWidth / 2
+alarmButtonWidth = int(SCREEN_WIDTH / 3 - 2 * 30)
+alarmButtonY = int(SCREEN_HEIGHT / 2 - alarmButtonWidth / 2)
 
 quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
                     200 * resolutionMultiplier, 100 * resolutionMultiplier, 
@@ -279,24 +277,21 @@ DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]],
                         30 * 2, alarmButtonY, 
                         alarmButtonWidth, alarmButtonWidth,
                         defaultImage=pygame.image.load("images/DCS-red.png").convert_alpha(),
-                        hoverImage=pygame.image.load("images/DCS-Gray.png").convert_alpha(), 
-                        onClickFunction=DCSAlarmObj.playAlarm)
+                        hoverImage=pygame.image.load("images/DCS-Gray.png").convert_alpha())
 
 GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                             30 * 3 + alarmButtonWidth, alarmButtonY, 
                             alarmButtonWidth, alarmButtonWidth, 
                             defaultImage=pygame.image.load("images/General-red.png").convert_alpha(),
-                            hoverImage=pygame.image.load("images/General-Gray.png").convert_alpha(),
-                            onClickFunction=GeneralAlarmObj.playAlarm)
+                            hoverImage=pygame.image.load("images/General-Gray.png").convert_alpha())
 
 HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
                                   30 * 4 + alarmButtonWidth * 2, alarmButtonY, 
                                   alarmButtonWidth, alarmButtonWidth,
                                   defaultImage=pygame.image.load("images/Action-red.png").convert_alpha(),
-                                  hoverImage=pygame.image.load("images/Action-Gray.png").convert_alpha(),
-                                  onClickFunction=HalifaxActionAlarmObj.playAlarm)
+                                  hoverImage=pygame.image.load("images/Action-Gray.png").convert_alpha())
 
-acknowledgeSize: tuple[float, float] = (60 * 1.7 * resolutionMultiplier, 80 * 1.7 * resolutionMultiplier)
+acknowledgeSize: tuple[int, int] = (int(60 * 1.7 * resolutionMultiplier), int(80 * 1.7 * resolutionMultiplier))
 Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
                      acknowledgeSize[0], acknowledgeSize[1], 
                      SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
@@ -319,10 +314,14 @@ hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 300, SCREEN_HEIGHT
 hornButton.onReleaseFunction = stopHornFunc
 hornButton.clickedImage = hornButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
 
-# Finish defining alarm objects
-DCSAlarmObj.alarmButton = DCSAlarmButton
-GeneralAlarmObj.alarmButton = GeneralAlarmButton
-HalifaxActionAlarmObj.alarmButton = HalifaxActionAlarmButton
+# define alarm objects
+DCSAlarmObj = alarmObj(DCSAlarmButton, DCSAlarm)
+GeneralAlarmObj = alarmObj(GeneralAlarmButton, GeneralAlarm)
+HalifaxActionAlarmObj = alarmObj(HalifaxActionAlarmButton, HalifaxActionAlarm)
+#add on-click function after defining alarm objects to avoid circular reference
+HalifaxActionAlarmButton.onClickFunction = HalifaxActionAlarmObj.playAlarm
+GeneralAlarmButton.onClickFunction = GeneralAlarmObj.playAlarm
+DCSAlarmButton.onClickFunction = DCSAlarmObj.playAlarm
 
 # Setup TPrint stuff
 fixesAlarmPrinter = TextPrint()
@@ -337,6 +336,27 @@ FPSPrinter.y = 10 * resolutionMultiplier
 pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
                           pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST, 
                           pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))
+
+#credits
+DISPLAYSURF.fill("#202020")
+creditsText = TextPrint()
+creditsText.font1 = pygame.font.Font(None, 40 * resolutionMultiplier)
+creditsText.color = pygame.Color("#FFFFFF")
+
+creditsText.line_height = creditsText.font1.get_height() + 10 * resolutionMultiplier
+
+creditsText.x = int(creditsText.line_height)
+creditsText.y = int(SCREEN_HEIGHT) - (creditsText.line_height * 6)
+
+creditsText.tprint(DISPLAYSURF, 
+"""Contributed by CPO1 Miller, Oliver
+    Chief Bosun's Mate, RCSCC Undaunted 2025
+
+Support:
+https://github.com/OliverMMiller/DCSAlarmPanel""", moveDown=True)
+pygame.display.update()
+time.sleep(4)
+del creditsText
 
 # Main control loop
 while __name__ == "__main__":

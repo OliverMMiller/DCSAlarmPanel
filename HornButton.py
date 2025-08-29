@@ -27,7 +27,7 @@ pygame.mixer.music.set_volume(1.00)
 boatHorn = pygame.mixer.Sound("sound/shipHorn.wav")
 boatHorn.set_volume(1.00)
 newHorn = boatHorn
-newHorn.set_volume(1.00)
+newHorn.set_volume(0.90)
 
 waterSplash = pygame.mixer.Sound("sound/waterSplash.mp3")
 waterSplash.set_volume(0.70)
@@ -59,10 +59,11 @@ class TextPrint:
         """
         Prints text on the screen.
         """
-        text_bitmap = self.font1.render(text, True, self.color)
-        screen.blit(text_bitmap, (self.x, self.y))
-        if moveDown:
-            self.y += self.line_height
+        for i in text.splitlines():
+            text_bitmap = self.font1.render(i, True, self.color)
+            screen.blit(text_bitmap, (self.x, self.y))
+            if moveDown:
+                self.y += self.line_height
 
     def reset(self) -> None:
         """
@@ -206,6 +207,27 @@ FPSPrinter.y = 10
 pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
                           pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST, 
                           pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))
+
+#credits
+DISPLAYSURF.fill("#202020")
+creditsText = TextPrint()
+creditsText.font1 = pygame.font.Font(None, 50)
+creditsText.color = pygame.Color("#FFFFFF")
+
+creditsText.line_height = creditsText.font1.get_height() + 20
+
+creditsText.x = int(creditsText.line_height)
+creditsText.y = int(SCREEN_HEIGHT - creditsText.line_height * 6)
+
+creditsText.tprint(DISPLAYSURF, 
+"""Contributed by CPO1 Miller, Oliver
+    Chief Bosun's Mate, RCSCC Undaunted 2025
+
+Support:
+https://github.com/OliverMMiller/DCSAlarmPanel""", moveDown=True)
+pygame.display.update()
+time.sleep(4)
+del creditsText
 
 # Main control loop
 while __name__ == "__main__":
