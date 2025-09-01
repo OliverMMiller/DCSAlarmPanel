@@ -4,7 +4,6 @@ After initial download:
 mv /home/donfigol/DCSAlarmPanel/Panel.service /lib/systemd/system/
 mv /home/donfigol/DCSAlarmPanel/StartPanel.sh /home/donfigol/Desktop/
 
-
 #edit systemd service file (runs at startup)
 sudo nano /lib/systemd/system/Panel.service
 # Run after editing
@@ -29,6 +28,11 @@ python3 /home/donfigol/DCSAlarmPanel/InstructorPanel.py
 #kill processes through ssh terminal
 sudo ps -ax | grep python
 sudo kill <PID>
+
+delete file:
+rm
+    recursively (allows you to delete a folder):
+    rm -r
 
 #cpu temp:
 vcgencmd measure_temp
