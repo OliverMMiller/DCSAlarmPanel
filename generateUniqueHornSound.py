@@ -24,8 +24,6 @@ pygame.mixer.init()
 # Load a sound
 original_sound = pygame.mixer.Sound("sound/shipHorn.wav")
 
-#[-0.5, 0, 2, 4, 6]
-
 # Shift the pitch by x semitones
 shifted_sound = pitch_shift(original_sound, 10)
 

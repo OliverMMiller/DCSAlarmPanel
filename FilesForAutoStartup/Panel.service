@@ -4,7 +4,7 @@ Description=Start horn button
 [Service]
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
-ExecStart=/bin/bash -c 'sudo su -c /home/donfigol/Desktop/StartHornButton.sh donfigol > /home/donfigol/dcsalarmpanel/horntest.log 2>&1'
+ExecStart=/bin/bash -c 'sudo su -c /home/donfigol/Desktop/StartPanel.sh donfigol > /home/donfigol/DCSAlarmPanel/ServiceLog.log 2>&1'
 ExecStop= pkill -SIGTERM python3
 Restart=on-failure
 RestartSec=20s

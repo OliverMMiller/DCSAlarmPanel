@@ -1,25 +1,30 @@
+git clone https://github.com/OliverMMiller/DCSAlarmPanel
+
 After initial download:
-horn.service Needs to be moved to /lib/systemd/system/
-StartHornButton.sh Needs to be moved to /home/donfigol/Desktop/
+mv /home/donfigol/DCSAlarmPanel/Panel.service /lib/systemd/system/
+mv /home/donfigol/DCSAlarmPanel/StartPanel.sh /home/donfigol/Desktop/
 
 
 #edit systemd service file (runs at startup)
-sudo nano /lib/systemd/system/horn.service
+sudo nano /lib/systemd/system/Panel.service
 # Run after editing
 sudo systemctl daemon-reload
 
 
-sudo systemctl enable horn.service
-sudo systemctl start horn.service
-sudo systemctl stop horn.service
+sudo systemctl enable Panel.service
+sudo systemctl start Panel.service
+sudo systemctl stop Panel.service
 
 #edit startup script
-nano /home/donfigol/Desktop/StartHornButton.sh
-nano /home/donfigol/Desktop/launcher.sh
+nano /home/donfigol/Desktop/StartPanel.sh
 
 # Command to run startup script
-sudo su -c /home/donfigol/Desktop/StartHornButton.sh donfigol
-sudo su -c /home/donfigol/Desktop/launcher.sh donfigol
+sudo su -c /home/donfigol/Desktop/StartPanel.sh donfigol
+
+# main files
+/home/donfigol/DCSAlarmPanel
+OliversButtonModule.py
+python3 /home/donfigol/DCSAlarmPanel/InstructorPanel.py
 
 #kill processes through ssh terminal
 sudo ps -ax | grep python
@@ -30,3 +35,4 @@ vcgencmd measure_temp
 
 #view log
 nano DCSAlarmPanel/PanelTest.log
+
