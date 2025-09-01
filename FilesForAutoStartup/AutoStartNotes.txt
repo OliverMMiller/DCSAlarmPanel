@@ -1,17 +1,20 @@
+#after a new os:
 git clone https://github.com/OliverMMiller/DCSAlarmPanel
+sudo mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.service /lib/systemd/system/
+mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
+chmod +x /home/donfigol/Desktop/StartPanel.sh
+sudo systemctl daemon-reload
+sudo systemctl enable Panel.service
+sudo systemctl start Panel.service
 
-After initial download:
-mv /home/donfigol/DCSAlarmPanel/Panel.service /lib/systemd/system/
-mv /home/donfigol/DCSAlarmPanel/StartPanel.sh /home/donfigol/Desktop/
+#  it should now just work
+
+
+### the following is helpful stuff
 
 #edit systemd service file (runs at startup)
 sudo nano /lib/systemd/system/Panel.service
-# Run after editing
-sudo systemctl daemon-reload
 
-
-sudo systemctl enable Panel.service
-sudo systemctl start Panel.service
 sudo systemctl stop Panel.service
 
 #edit startup script
