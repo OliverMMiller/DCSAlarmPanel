@@ -12,8 +12,12 @@ sudo systemctl start Panel.service
 
 ### the following is helpful stuff
 
+#ssh:
+ssh donfigol@NTC-Instructor-Station-PI
+
 #edit systemd service file (runs at startup)
 sudo nano /lib/systemd/system/Panel.service
+nano ~/.config/systemd/user/Panel.service
 
 sudo systemctl stop Panel.service
 
@@ -42,4 +46,7 @@ vcgencmd measure_temp
 
 #view log
 nano DCSAlarmPanel/PanelTest.log
+
+#Power off immediately:
+sudo shutdown -P now
 
