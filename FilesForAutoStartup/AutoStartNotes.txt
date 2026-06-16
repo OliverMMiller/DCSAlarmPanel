@@ -1,11 +1,10 @@
-#after a new os:
+# after a new os:
 git clone https://github.com/OliverMMiller/DCSAlarmPanel
-sudo mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.service /lib/systemd/system/
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
+mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.desktop ~/.config/autostart/
 chmod +x /home/donfigol/Desktop/StartPanel.sh
-sudo systemctl daemon-reload
-sudo systemctl enable Panel.service
-sudo systemctl start Panel.service
+
+sudo reboot
 
 #  it should now just work
 
@@ -22,7 +21,7 @@ nano ~/.config/systemd/user/Panel.service
 sudo systemctl stop Panel.service
 
 #edit startup script
-nano /home/donfigol/Desktop/StartPanel.sh
+nano /home/donfigol/Desktop/StartPanel.sh-
 
 # Command to run startup script
 sudo su -c /home/donfigol/Desktop/StartPanel.sh donfigol

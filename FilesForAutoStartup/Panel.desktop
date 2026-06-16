@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Panel
+Exec=/home/donfigol/Desktop/StartPanel.sh
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
