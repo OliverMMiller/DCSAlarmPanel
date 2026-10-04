@@ -3,49 +3,85 @@ git clone https://github.com/OliverMMiller/DCSAlarmPanel
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.desktop ~/.config/autostart/
 chmod +x /home/donfigol/Desktop/StartPanel.sh
-
 sudo reboot
-
-#  it should now just work
+# it should now just work
 
 
 ### the following is helpful stuff
 
-#ssh:
+# NOTE: Uses XDG autostart (Panel.desktop) not systemd service
+# App starts automatically on desktop login via ~/.config/autostart/Panel.desktop
+
+
+# ssh:
 ssh donfigol@NTC-Instructor-Station-PI
 
-#edit systemd service file (runs at startup)
-sudo nano /lib/systemd/system/Panel.service
-nano ~/.config/systemd/user/Panel.service
 
-sudo systemctl stop Panel.service
+# kill and rerun startup script:
+pkill -f "python3.*InstructorPanel"
+sleep 2
+DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
-#edit startup script
-nano /home/donfigol/Desktop/StartPanel.sh-
+pkill -f "python3.*AlarmPanel"
+sleep 2
+DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
-# Command to run startup script
-sudo su -c /home/donfigol/Desktop/StartPanel.sh donfigol
+
+# if not starting on boot, manually test:
+DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
+
+
+# edit startup script
+nano /home/donfigol/Desktop/StartPanel.sh
+
 
 # main files
 /home/donfigol/DCSAlarmPanel
 OliversButtonModule.py
 python3 /home/donfigol/DCSAlarmPanel/InstructorPanel.py
+/home/donfigol/DCSAlarmPanel/FilesForAutoStartup
 
-#kill processes through ssh terminal
+
+# kill processes through ssh terminal
 sudo ps -ax | grep python
 sudo kill <PID>
+# more forceful:
+sudo kill -9 <PID>
 
-delete file:
-rm
-    recursively (allows you to delete a folder):
-    rm -r
 
-#cpu temp:
+# delete file:
+rm filename
+# recursively (delete folder):
+rm -r foldername
+
+
+# cpu temp:
 vcgencmd measure_temp
 
-#view log
-nano DCSAlarmPanel/PanelTest.log
 
-#Power off immediately:
+# view log
+tail /home/donfigol/DCSAlarmPanel/ServiceLog.log
+
+# follow log in real-time:
+tail -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
+
+
+# check disk/filesystem health:
+sudo fsck -n /dev/mmcblk0p2
+
+
+# Power off immediately:
 sudo shutdown -P now
 
+
+# reboot:
+sudo reboot
+
+
+# update pi
+sudo apt update
+sudo apt upgrade -y
+
+
+# turn on Wi-Fi (persistent)
+sudo systemctl start wpa_supplicant.service

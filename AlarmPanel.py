@@ -21,6 +21,8 @@ SCREEN_WIDTH = 1080 * resolutionMultiplier
 SCREEN_HEIGHT = 720 * resolutionMultiplier
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED))  # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
+needsRedraw = True
+
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
@@ -52,11 +54,10 @@ image = {
 }
 
 # Setting up FPS
-FPS = 60
+FPS = 6000
 FramePerSec = pygame.time.Clock()
-alarmTimeFPS = 20
-alarmTimeCounter = 0
 displayFPSInfo = True
+executionStopwatch = 0.0
 
 # Global variables
 currentAlarm = None
@@ -65,6 +66,7 @@ ResetNext = False
 nightMode = False
 nextFix = time.localtime().tm_min + AlarmTime - 1 + (round(time.localtime().tm_sec / 60))
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60
+previousSeconds = -1
 fixesAlarmMuted = True
 
 # Scenes
@@ -98,6 +100,26 @@ class TextPrint:
         self.x = 50 * resolutionMultiplier
         self.y = 50 * resolutionMultiplier
         self.line_height = 80 * resolutionMultiplier
+        
+#Show credits while loading the program
+DISPLAYSURF.fill("#202020")
+creditsText = TextPrint()
+creditsText.font1 = pygame.font.Font(None, 40 * resolutionMultiplier)
+creditsText.color = pygame.Color("#FFFFFF")
+
+creditsText.line_height = creditsText.font1.get_height() + 10 * resolutionMultiplier
+
+creditsText.x = int(creditsText.line_height)
+creditsText.y = int(SCREEN_HEIGHT) - (creditsText.line_height * 6)
+
+creditsText.tprint(DISPLAYSURF, 
+"""Contributed by CPO1 Miller, Oliver
+    Chief Bosun's Mate, RCSCC Undaunted 2025
+
+Support:
+https://github.com/OliverMMiller/DCSAlarmPanel""", moveDown=True)
+pygame.display.update()
+del creditsText
 
 class alarmObj:
     """
@@ -198,7 +220,7 @@ def resetFixesAlarm() -> None:
     Resets the fixes alarm timer.
     """
     global nextFix
-    nextFix = (time.localtime().tm_min + max(AlarmTime - 1, 0) + (round((time.localtime().tm_sec + 2) / 60))) % 60
+    nextFix = (time.localtime().tm_min + max(AlarmTime - 1, 0) + (round((seconds + 2) / 60))) % 60
 
 def checkFixesAlarm() -> None:
     """
@@ -208,9 +230,9 @@ def checkFixesAlarm() -> None:
     global timeUntilNextFix
     global ResetNext
     mins = time.localtime().tm_min
-    if timeUntilNextFix == 0 and time.localtime().tm_sec == 59:
+    if timeUntilNextFix == 0 and seconds == 59:
         ResetNext = True
-    elif ResetNext and time.localtime().tm_sec == 0:  # Checks if timer needs to be reset
+    elif ResetNext and seconds == 0:  # Checks if timer needs to be reset
         ResetNext = False
         nextFix = (mins + max(AlarmTime - 1, 0)) % 60
         if not fixesAlarmMuted:
@@ -256,7 +278,7 @@ def stopHornFunc() -> None:
 alarmButtonWidth = int(SCREEN_WIDTH / 3 - 2 * 30)
 alarmButtonY = int(SCREEN_HEIGHT / 2 - alarmButtonWidth / 2)
 
-quitButton = button(DISPLAYSURF, [], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
+quitButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
                     200 * resolutionMultiplier, 100 * resolutionMultiplier, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
@@ -337,38 +359,32 @@ pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
                           pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST, 
                           pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))
 
-#credits
-DISPLAYSURF.fill("#202020")
-creditsText = TextPrint()
-creditsText.font1 = pygame.font.Font(None, 40 * resolutionMultiplier)
-creditsText.color = pygame.Color("#FFFFFF")
 
-creditsText.line_height = creditsText.font1.get_height() + 10 * resolutionMultiplier
 
-creditsText.x = int(creditsText.line_height)
-creditsText.y = int(SCREEN_HEIGHT) - (creditsText.line_height * 6)
 
-creditsText.tprint(DISPLAYSURF, 
-"""Contributed by CPO1 Miller, Oliver
-    Chief Bosun's Mate, RCSCC Undaunted 2025
+hasOnClickFunction: list = []
+hasOnReleaseFunction: list = []
+for object in scenes[scene]:
+    if hasattr(object, "onClickFunction"):
+        if object.onClickFunction:
+            hasOnClickFunction.append(object)
+            if hasattr(object, "onReleaseFunction"):
+                if object.onReleaseFunction:
+                    hasOnReleaseFunction.append(object)
 
-Support:
-https://github.com/OliverMMiller/DCSAlarmPanel""", moveDown=True)
-pygame.display.update()
+
+#show credits for minimum 4 seconds before starting main loop
 time.sleep(4)
-del creditsText
+
+#clear the event queue to avoid any queued events from before the program started
+pygame.event.clear()
 
 # Main control loop
 while __name__ == "__main__":
-    hasOnClickFunction: list = []
-    hasOnReleaseFunction: list = []
-    for object in scenes[scene]:
-        if hasattr(object, "onClickFunction"):
-            if object.onClickFunction:
-                hasOnClickFunction.append(object)
-                if hasattr(object, "onReleaseFunction"):
-                    if object.onReleaseFunction:
-                        hasOnReleaseFunction.append(object)
+    if displayFPSInfo:
+        executionStopwatch = time.perf_counter()
+
+    doubleClickBlacklist = []
 
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
@@ -382,10 +398,11 @@ while __name__ == "__main__":
         elif event.type == pygame.WINDOWCLOSE:
             quitFunc()
         elif event.type == pygame.MOUSEBUTTONDOWN:
+            needsRedraw = True
             for thisIntractable in hasOnClickFunction:
-                if thisIntractable.myRect.collidepoint(event.pos):
+                if thisIntractable not in doubleClickBlacklist and thisIntractable.myRect.collidepoint(event.pos):
                     thisIntractable.onClickFunction()
-                    hasOnClickFunction.remove(thisIntractable)
+                    doubleClickBlacklist.append(thisIntractable)
 
             if event.touch == 1:
                 displayFPSInfo = False
@@ -397,39 +414,55 @@ while __name__ == "__main__":
                 scenes["acknowledge"].insert(0, quitButton)
                 quitButton.ignoreNextPress = True
         elif event.type == pygame.MOUSEBUTTONUP:
+            needsRedraw = True
             for thisIntractable in hasOnReleaseFunction:
                 if thisIntractable.myRect.collidepoint(event.pos):
                     thisIntractable.onReleaseFunction()
-                    hasOnReleaseFunction.remove(thisIntractable)
 
-    if nightMode:
-        DISPLAYSURF.fill("#202525")  # set background colour to night mode
-    else:
-        DISPLAYSURF.fill("#d0d0d0")  # set background colour to day mode
-
-    scene = nextScene
-
-    # renders all objects in the current scene
-    for object in scenes[scene]:
-        object.process(None)
-
-    # updates fixes alarm time values every few frames
-    if alarmTimeCounter >= FPS / alarmTimeFPS:
-        alarmTimeCounter = 0
+    # determines if fixes timer needs to be calculated and redrawn
+    seconds = time.localtime().tm_sec
+    if previousSeconds != seconds:
         checkFixesAlarm()
-    else:
-        alarmTimeCounter += 1
-    # render fixes alarm time
-    seconds = 60 - time.localtime().tm_sec - 1
-    if seconds <= 9:
-        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{seconds}")
-    else:
-        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : {seconds}")
+        needsRedraw = True
+        previousSeconds = seconds
 
-    if displayFPSInfo:
-        FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")
-        FPSPrinter.tprint(DISPLAYSURF, F"                     mspt:{FramePerSec.get_time()} ")
 
-    # render frame at the right time
-    pygame.display.update()
+    if needsRedraw:# or displayFPSInfo:
+        if nightMode:
+            DISPLAYSURF.fill("#202525")  # set background colour to night mode
+        else:
+            DISPLAYSURF.fill("#d0d0d0")  # set background colour to day mode
+
+        if scene != nextScene:
+            scene = nextScene
+            hasOnClickFunction: list = []
+            hasOnReleaseFunction: list = []
+            for object in scenes[scene]:
+                if hasattr(object, "onClickFunction"):
+                    if object.onClickFunction:
+                        hasOnClickFunction.append(object)
+                        if hasattr(object, "onReleaseFunction"):
+                            if object.onReleaseFunction:
+                                hasOnReleaseFunction.append(object)
+
+        # renders all objects in the current scene
+        for object in scenes[scene]:
+            object.process(None)
+
+
+        # render fixes alarm time
+        remainingSeconds = 60 - seconds - 1
+        if remainingSeconds <= 9:
+            fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : 0{remainingSeconds}")
+        else:
+            fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : {remainingSeconds}")
+
+        if displayFPSInfo:
+            FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")
+            FPSPrinter.tprint(DISPLAYSURF, F"                     mspt:{(time.perf_counter() - executionStopwatch)*1000:.0f} ")
+
+
+        # render frame
+        pygame.display.update()
+        needsRedraw = False
     FramePerSec.tick(FPS)
