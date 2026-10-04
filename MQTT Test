@@ -1,0 +1,134 @@
+import queue
+import json
+import paho.mqtt.client as mqtt
+
+# 1. Initialize your thread-safe queue
+network_queue = queue.Queue()
+
+# 2. Define MQTT Event Callbacks
+def on_connect(client, userdata, flags, rc, properties=None):
+    """Triggered automatically when the script successfully connects to Mosquitto."""
+    if rc == 0:
+        print("Connected successfully to Mosquitto Broker!")
+        # Subscribe here so if the connection drops and reconnects, 
+        # the subscriptions are automatically renewed.
+        # '#' matches ShipSim/Alarm itself and any topics nested below it.
+        result, mid = client.subscribe("ShipSim/Alarm/#")
+        if result == mqtt.MQTT_ERR_SUCCESS:
+            print(f"Requested subscription to ShipSim/Alarm/# (mid={mid})")
+        else:
+            print(f"Subscription request failed with result code {result}")
+    else:
+        print(f"Connection failed with result code {rc}")
+
+def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
+    """Triggered when the broker acknowledges a subscription request."""
+    print(f"Subscription acknowledged (mid={mid}, result={reason_code_list})")
+
+def on_message(client, userdata, msg):
+    """Triggered automatically whenever a message arrives on a subscribed topic."""
+    print(
+        f"[MQTT] Received {msg.topic} -> "
+        f"{msg.payload.decode('utf-8', errors='replace')}",
+        flush=True,
+    )
+
+    try:
+        # Decode bytes payload to string, then parse the JSON
+        payload_str = msg.payload.decode('utf-8')
+        payload_data = json.loads(payload_str)
+
+        if isinstance(payload_data, dict):
+            active_alarms = [
+                key for key, value in payload_data.items()
+                if key.endswith("Alarm") and value == 1
+            ]
+            if active_alarms:
+                reset_payload = payload_data.copy()
+                for alarm in active_alarms:
+                    reset_payload[alarm] = 0
+
+                result = client.publish(msg.topic, json.dumps(reset_payload))
+                if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                    print(
+                        f"[MQTT] Deactivating {', '.join(active_alarms)} "
+                        f"on {msg.topic}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"[MQTT] Failed to deactivate "
+                        f"{', '.join(active_alarms)} on {msg.topic} "
+                        f"(result code {result.rc})",
+                        flush=True,
+                    )
+        
+        # Package everything neatly for your Pygame loop
+        queue_item = {
+            "topic": msg.topic,
+            "data": payload_data
+        }
+        
+        # Drop it into the queue. Pygame will safely pick it up on its next frame.
+        network_queue.put(queue_item)
+        
+    except json.JSONDecodeError:
+        print(f"Warning: Received non-JSON payload on topic {msg.topic}: {msg.payload}")
+    except Exception as e:
+        print(f"Error handling incoming MQTT message: {e}")
+
+# 3. Configure and Initialize the Client
+# NOTE: paho-mqtt v2.0+ requires specifying the API version explicitly
+try:
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+except AttributeError:
+    # Fallback for older paho-mqtt 1.x environments just in case
+    client = mqtt.Client()
+
+client.on_connect = on_connect
+client.on_subscribe = on_subscribe
+client.on_message = on_message
+
+# 4. Establish Connection to your Laptop's Broker
+BROKER_IP = "127.0.0.1"
+BROKER_PORT = 1883
+KEEP_ALIVE_SECONDS = 60
+
+print(f"Connecting to broker at {BROKER_IP}:{BROKER_PORT}...")
+client.connect(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
+
+# 5. Spin up the non-blocking background thread
+# This manages network traffic completely independently of your graphics loop.
+client.loop_start()
+
+
+# =======================================================
+# YOUR MAIN PYGAME GAME LOOP
+# =======================================================
+while True:
+    # ... Step 1: Process Pygame touch/UI event queue ...
+    
+    # Step 2: Drain the Network Queue
+    try:
+        while not network_queue.empty():
+            msg = network_queue.get_nowait()
+            
+            # Extract data components
+            topic = msg["topic"]
+            alarm_data = msg["data"]  # This is your parsed dictionary
+            
+            # --- EXAMPLE ROUTING TO YOUR ABSTRACTION LAYER ---
+            # Extract specific variables from the dictionary payload
+            DCSAlarm = alarm_data.get("DCSAlarm") 
+            GeneralAlarm = alarm_data.get("GeneralAlarm")
+            Acknowledge = alarm_data.get("Acknowledge") 
+            
+            print(f"[Pygame Thread] Processing network update for {topic} -> Data: {alarm_data}")
+            
+            # map_to_alarm_objects(topic, alarm_status)
+            
+    except queue.Empty:
+        pass
+
+    # ... Step 3: Calculate/Draw rolling timer ...
+    # ... Step 4: Draw screen and flip frame buffer ...

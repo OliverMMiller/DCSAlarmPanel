@@ -2,6 +2,7 @@
 import sys
 import pygame
 import time
+import queue
 from pygame.locals import QUIT
 from typing import Callable
 from OliversButtonModule import button as button
@@ -384,8 +385,8 @@ while __name__ == "__main__":
     if displayFPSInfo:
         executionStopwatch = time.perf_counter()
 
+    #Handle non-network (user) events
     doubleClickBlacklist = []
-
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
             quitFunc()
@@ -418,6 +419,9 @@ while __name__ == "__main__":
             for thisIntractable in hasOnReleaseFunction:
                 if thisIntractable.myRect.collidepoint(event.pos):
                     thisIntractable.onReleaseFunction()
+
+    #handle network events
+
 
     # determines if fixes timer needs to be calculated and redrawn
     seconds = time.localtime().tm_sec
