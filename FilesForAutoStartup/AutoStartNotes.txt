@@ -71,7 +71,7 @@ tail /home/donfigol/DCSAlarmPanel/MQTTlog
 tail -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
 tail -f /home/donfigol/DCSAlarmPanel/MQTTlog
 
-#windows version
+#windows powershell version
     Get-Content MQTTlog.log -Tail 5 -Wait
 
 # check disk/filesystem health:

@@ -19,7 +19,7 @@ class squircle:
     """
     Class to represent a squircle shape.
     """
-    def __init__(self, width: int, height: int, fillColor: pygame.Color | None, borderRadius: int = 50, borderWidth: int = 3, borderColor: pygame.Color | None = None):  
+    def __init__(self, width: int, height: int, fillColor: pygame.Color | None, borderRadius: int = 50, borderWidth: int = 6, borderColor: pygame.Color | None = None):  
         """_summary_
 
         Args:
@@ -66,18 +66,36 @@ class squircle:
         if "yJustification" in kwargs:
             self.yJustification = validate_value(kwargs["yJustification"], 0, 1)
 
-        size = self.font.size(self.text)
-        if (size[0] > self.width or size[1] > self.height) and not self.ignoreTextOverflow:
-            raise ValueError(f"Text too large to fit in squircle\nText: {self.text}")
+        textWidth = 0
+        textCharWidth = 0
+        textHeight = 0
+        multiLineText = self.text.splitlines()
+        for line in multiLineText:
+            size = self.font.size(line)
+            textWidth = max(textWidth, size[0])
+            textCharWidth = max(textCharWidth, len(line))
+            textHeight += size[1]
+
+
+        justifiedText = ""
         if self.justificationType == "centered":
-            x = self.width * self.xJustification - size[0] / 2
-            y = self.height * self.yJustification - size[1] / 2
+            justifiedText = "\n".join(f"{line:^{textCharWidth}}" for line in multiLineText)
+            x = self.width * self.xJustification - textWidth / 2
+            y = self.height * self.yJustification - textHeight / 2
+            
+            
         elif self.justificationType == "absolute":
+            justifiedText = self.text
+            size = self.font.size(self.text)
             x = self.xJustification
             y = self.yJustification
         else:
             raise ValueError("justificationType must be 'centered' or 'absolute'")
-        self.mySurface.blit(self.font.render(self.text, True, self.textColor), (x, y))
+        
+        if (textWidth > self.width or textHeight > self.height) and not self.ignoreTextOverflow:
+            raise ValueError(f"Text too large to fit in squircle\nText: {self.text}")
+        
+        self.mySurface.blit(self.font.render(justifiedText, True, self.textColor), (x, y))
 
     def setText(self, text: str, font: pygame.font.Font, color: pygame.Color, 
                 justificationType: str = "centered", 

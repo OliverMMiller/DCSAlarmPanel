@@ -26,13 +26,13 @@ pygame.mixer.init()
 
 
 # Setting up screen
-resolutionMultiplier = 1
-SCREEN_WIDTH = 1920 * resolutionMultiplier
-SCREEN_HEIGHT = 1200 * resolutionMultiplier
-DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED))  # | pygame.NOFRAME  pygame.RESIZABLE
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1200
+DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED ))  # | pygame.NOFRAME  pygame.RESIZABLE
 pygame.display.set_caption('DCS Alarm Panel')
 needsRedraw = True
 
+print(pygame.display.get_window_size())
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
@@ -66,16 +66,12 @@ network_queue = queue.Queue()
 MQTT_Clear_json = {"DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": False}
 
 # Setting up fonts
-hornFont = pygame.font.Font(None, 100 * resolutionMultiplier)
+hornFont = pygame.font.Font(None, 100)
+alarmFont = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 100)
+acknowledgeFont = pygame.font.Font(None, 300)
 myFont = pygame.font.SysFont('Arial', 50)
 
-# Original alarms (commented out for now)
-# DCSAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
-# GeneralAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
-# HalifaxActionAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
-
 # "Corrected" alarms
-HalifaxActionAlarm = pygame.mixer.Sound("sound/DCSAlarm.wav")
 DCSAlarm = pygame.mixer.Sound("sound/GeneralAlarm.wav")
 GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 
@@ -83,8 +79,8 @@ GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 image = {
     "muted": pygame.image.load("images/Muted.png").convert_alpha(),
     "unmuted": pygame.image.load("images/Unmuted.png").convert_alpha(),
-    "toggleNightMode": pygame.image.load("images/ToggleDayMode.png").convert_alpha(),
-    "toggleDayMode": pygame.image.load("images/ToggleNightMode.png").convert_alpha(),
+    "toggleNightMode": pygame.image.load("images/ToggleDayMode_trimmed.png").convert_alpha(),#images/ToggleDayMode.png
+    "toggleDayMode": pygame.image.load("images/ToggleNightMode_trimmed.png").convert_alpha(),#images/ToggleNightMode.png
 }
 
 # Setting up FPS
@@ -115,7 +111,7 @@ class TextPrint:
     """
     def __init__(self):
         self.reset()
-        self.font1 = pygame.font.Font(None, 90 * resolutionMultiplier)
+        self.font1 = pygame.font.Font(None, 90)
         self.color = pygame.Color(0, 0, 0)
 
     def tprint(self, screen, text, moveDown=False) -> None:
@@ -132,17 +128,17 @@ class TextPrint:
         """
         Resets the text position.
         """
-        self.x = 50 * resolutionMultiplier
-        self.y = 50 * resolutionMultiplier
-        self.line_height = 80 * resolutionMultiplier
+        self.x = 50
+        self.y = 50
+        self.line_height = 80
         
 #Show credits while loading the program
 DISPLAYSURF.fill("#202020")
 creditsText = TextPrint()
-creditsText.font1 = pygame.font.Font(None, 40 * resolutionMultiplier)
+creditsText.font1 = pygame.font.Font(None, 40)
 creditsText.color = pygame.Color("#FFFFFF")
 
-creditsText.line_height = creditsText.font1.get_height() + 10 * resolutionMultiplier
+creditsText.line_height = creditsText.font1.get_height() + 10
 
 creditsText.x = int(creditsText.line_height)
 creditsText.y = int(SCREEN_HEIGHT) - (creditsText.line_height * 6)
@@ -203,8 +199,8 @@ class squircleButton(squircle, button):
     def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x: int, y: int, width: int, height: int,
                  text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
                  borderColor: pygame.Color | None, fillColor: pygame.Color | None,
-                 onClickFunction: Callable,
-                 borderRadius: int = 50*resolutionMultiplier, borderWidth: int = 3*resolutionMultiplier,) -> None:
+                 onClickFunction: Callable | None,
+                 borderRadius: int = 50, borderWidth: int = 3) -> None:
         """_summary_
 
         Args:
@@ -220,8 +216,8 @@ class squircleButton(squircle, button):
             borderColor (pygame.Color | None): border color
             fillColor (pygame.Color | None): fill color
             onClickFunction (Callable): function to run when button clicked
-            borderRadius (int, optional): corner radius. Defaults to 50*resolutionMultiplier.
-            borderWidth (int, optional): border width. Defaults to 3*resolutionMultiplier.
+            borderRadius (int, optional): corner radius. Defaults to 50.
+            borderWidth (int, optional): border width. Defaults to 3.
 
         Raises:
             ValueError: _description_
@@ -301,7 +297,6 @@ def setIgnoreNextPress() -> None:
     Acknowledge.ignoreNextPress = True
     DCSAlarmButton.ignoreNextPress = True
     GeneralAlarmButton.ignoreNextPress = True
-    HalifaxActionAlarmButton.ignoreNextPress = True
     resetFixTimeButton.ignoreNextPress = True
 
 def playHornFunc() -> None:
@@ -364,13 +359,11 @@ def on_message(client, userdata, msg):
         payload_str = msg.payload.decode('utf-8')
         payload_data = json.loads(payload_str)
 
-        # Package everything neatly for your Pygame loop
         queue_item = {
             "topic": msg.topic,
             "data": payload_data
         }
         
-        # Drop it into the queue. Pygame will safely pick it up on its next frame.
         network_queue.put(queue_item)
         
     except json.JSONDecodeError:
@@ -383,84 +376,103 @@ def on_message(client, userdata, msg):
         MQTTLogger.exception("Error handling incoming MQTT message: %s", e)
 
 # Create button objects
-alarmButtonWidth = int(SCREEN_WIDTH / 3 - 2 * 30)
-alarmButtonY = int(SCREEN_HEIGHT / 2 - alarmButtonWidth / 2)
+alarmButtonXSpacing = 60
+alarmButtonWidth = int((SCREEN_WIDTH - 5*alarmButtonXSpacing) / 2 )
+alarmButtonHeight = int((SCREEN_WIDTH - 5*alarmButtonXSpacing) / 3 )
+alarmButtonY = int(SCREEN_HEIGHT / 2 - alarmButtonHeight / 2)
 
-quitButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], SCREEN_WIDTH - 230 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                    200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+topButtonY = 2*alarmButtonXSpacing
+topButtonHeight = alarmButtonY - topButtonY - alarmButtonXSpacing
+print(topButtonHeight)
+
+quitButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
+                    SCREEN_WIDTH - topButtonHeight*2 - alarmButtonXSpacing*2, topButtonY, 
+                    topButtonHeight*2, topButtonHeight, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
 resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                            30 * resolutionMultiplier, 30 * resolutionMultiplier, 
-                            200 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                            int(alarmButtonXSpacing*2 + (alarmButtonWidth-300-alarmButtonXSpacing-topButtonHeight)/2), topButtonY, 
+                            300, topButtonHeight, 
                             pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
                             onClickFunction=resetFixesAlarm)
 
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                         (200 + 30 + 30) * resolutionMultiplier, 30 * resolutionMultiplier, 
-                         100 * resolutionMultiplier, 100 * resolutionMultiplier, 
+                         (resetFixTimeButton.x + resetFixTimeButton.width + alarmButtonXSpacing), resetFixTimeButton.y, 
+                         resetFixTimeButton.height, resetFixTimeButton.height, 
                          defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
                          onClickFunction=toggleFixesAlarmMute)
 
-DCSAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                        30 * 2, alarmButtonY, 
-                        alarmButtonWidth, alarmButtonWidth,
-                        defaultImage=pygame.image.load("images/DCS-red.png").convert_alpha(),
-                        hoverImage=pygame.image.load("images/DCS-Gray.png").convert_alpha())
-
-GeneralAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                            30 * 3 + alarmButtonWidth, alarmButtonY, 
-                            alarmButtonWidth, alarmButtonWidth, 
-                            defaultImage=pygame.image.load("images/General-red.png").convert_alpha(),
-                            hoverImage=pygame.image.load("images/General-Gray.png").convert_alpha())
-
-HalifaxActionAlarmButton = button(DISPLAYSURF, [scenes["default"]], 
-                                  30 * 4 + alarmButtonWidth * 2, alarmButtonY, 
-                                  alarmButtonWidth, alarmButtonWidth,
-                                  defaultImage=pygame.image.load("images/Action-red.png").convert_alpha(),
-                                  hoverImage=pygame.image.load("images/Action-Gray.png").convert_alpha())
-
-acknowledgeSize: tuple[int, int] = (int(60 * 1.7 * resolutionMultiplier), int(80 * 1.7 * resolutionMultiplier))
-Acknowledge = button(DISPLAYSURF, [scenes["acknowledge"]], 
-                     acknowledgeSize[0], acknowledgeSize[1], 
-                     SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
-                     defaultImage=pygame.image.load("images/Acknowledge.png").convert_alpha(), 
-                     onClickFunction=stopAlarm)
-del acknowledgeSize
-setIgnoreNextPress()
-
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
-                               (1080 - 190) * resolutionMultiplier, (720 - 170) * resolutionMultiplier, 
-                               150 * resolutionMultiplier, 150 * resolutionMultiplier, 
+                               alarmButtonWidth+alarmButtonXSpacing*5, alarmButtonXSpacing*2, 
+                               int(topButtonHeight*1.72), topButtonHeight, 
                                defaultImage=image["toggleDayMode"], 
                                onClickFunction=toggleNightMode)
 
-hornButton = squircleButton(DISPLAYSURF, [scenes["default"]], 300, SCREEN_HEIGHT - 500, 
-                            700 * resolutionMultiplier, 160 * resolutionMultiplier,
+DCSAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                            alarmButtonXSpacing*2, alarmButtonY, 
+                            alarmButtonWidth, alarmButtonHeight,
+                            text="DCS\nAlarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(170, 0, 0, 255),
+                            onClickFunction=None,
+                            borderRadius=100, borderWidth=5)
+DCSAlarmButton.hoverImage = DCSAlarmButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+
+GeneralAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                            alarmButtonXSpacing * 3 + alarmButtonWidth, alarmButtonY, 
+                            alarmButtonWidth, alarmButtonHeight, 
+                            text="General\nAlarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(170, 0, 0, 255),
+                            onClickFunction=None,
+                            borderRadius=100, borderWidth=5)
+GeneralAlarmButton.justificationType = "centered"
+GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+
+acknowledgeSize: tuple[int, int] = (int(60 * 1.8), int(80 * 1.8))
+Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]], 
+                        acknowledgeSize[0], acknowledgeSize[1], 
+                        SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
+                        text="Acknowledge", myFont=acknowledgeFont, textColor=pygame.Color(0, 0, 0, 255), 
+                        borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(225, 0, 0, 255),
+                        onClickFunction=stopAlarm,
+                        borderRadius=150, borderWidth=5)
+
+hornButton = squircleButton(DISPLAYSURF, [scenes["default"]],
+                            alarmButtonXSpacing*2, alarmButtonY + alarmButtonHeight + alarmButtonXSpacing, 
+                            SCREEN_WIDTH-alarmButtonXSpacing*4, SCREEN_HEIGHT - alarmButtonY - alarmButtonHeight - alarmButtonXSpacing*2,
                             text="Horn", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
                             borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
-                            onClickFunction=playHornFunc)
+                            onClickFunction=playHornFunc,
+                        borderRadius=50, borderWidth=5)
 hornButton.onReleaseFunction = stopHornFunc
 hornButton.clickedImage = hornButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+
+del alarmButtonXSpacing
+del alarmButtonWidth
+del alarmButtonHeight
+del alarmButtonY
+del acknowledgeSize
+setIgnoreNextPress()
+
 
 # define alarm objects
 DCSAlarmObj = alarmObj(DCSAlarmButton, DCSAlarm, {"DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False})
 GeneralAlarmObj = alarmObj(GeneralAlarmButton, GeneralAlarm, {"DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False})
-HalifaxActionAlarmObj = alarmObj(HalifaxActionAlarmButton, HalifaxActionAlarm)
 #add on-click function after defining alarm objects to avoid circular reference
-HalifaxActionAlarmButton.onClickFunction = HalifaxActionAlarmObj.playAlarm
 GeneralAlarmButton.onClickFunction = GeneralAlarmObj.playAlarm
 DCSAlarmButton.onClickFunction = DCSAlarmObj.playAlarm
 
 # Setup TPrint stuff
 fixesAlarmPrinter = TextPrint()
 fixesAlarmPrinter.reset()
+fixesAlarmPrinter.font1 = pygame.font.Font(None, 110)
+fixesAlarmPrinter.x = resetFixTimeButton.x + 50
+fixesAlarmPrinter.y = resetFixTimeButton.y + int((resetFixTimeButton.height-fixesAlarmPrinter.font1.size("5 : 30")[1])/2)
 FPSPrinter = TextPrint()
 FPSPrinter.reset()
-FPSPrinter.font1 = pygame.font.Font(None, 20 * resolutionMultiplier)
-FPSPrinter.x = 10 * resolutionMultiplier
-FPSPrinter.y = 10 * resolutionMultiplier
+FPSPrinter.font1 = pygame.font.Font(None, 40)
+FPSPrinter.x = 50
+FPSPrinter.y = 30
 
 # Control which events are allowed on the queue
 pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
@@ -536,15 +548,15 @@ while __name__ == "__main__":
                     thisIntractable.onClickFunction()
                     doubleClickBlacklist.append(thisIntractable)
 
-            if event.touch == 1:
-                displayFPSInfo = False
-                if quitButton in scenes["default"]:
-                    scenes["default"].remove(quitButton)
-                    scenes["acknowledge"].remove(quitButton)
-            else:
-                scenes["default"].insert(0, quitButton)
-                scenes["acknowledge"].insert(0, quitButton)
-                quitButton.ignoreNextPress = True
+            # if event.touch == 1:
+            #     displayFPSInfo = False
+            #     if quitButton in scenes["default"]:
+            #         scenes["default"].remove(quitButton)
+            #         scenes["acknowledge"].remove(quitButton)
+            # else:
+            #     scenes["default"].insert(0, quitButton)
+            #     scenes["acknowledge"].insert(0, quitButton)
+            #     quitButton.ignoreNextPress = True
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             needsRedraw = True
             mousePos = event.pos
@@ -561,15 +573,8 @@ while __name__ == "__main__":
                 # Extract data components
                 topic = msg["topic"]
                 alarm_data = msg["data"]  # This is your parsed dictionary
-                
 
-                # Extract specific variables from the dictionary payload
-                # DCSAlarm = alarm_data.get("DCSAlarm") 
-                # DCSAlarmObj.playAlarm()
-                # GeneralAlarm = alarm_data.get("GeneralAlarm")
-                # Acknowledge = alarm_data.get("Acknowledge") 
-                
-                MQTTLogger.info("Processing network update for %s -> Data: %s", topic, alarm_data)
+                MQTTLogger.debug("Processing network update for %s -> Data: %s", topic, alarm_data)
                 
                 if alarm_data.get("Acknowledge") is True:
                     stopAlarm()
