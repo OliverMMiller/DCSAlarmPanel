@@ -66,9 +66,9 @@ network_queue = queue.Queue()
 MQTT_Clear_json = {"DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": False}
 
 # Setting up fonts
-hornFont = pygame.font.Font(None, 100)
-alarmFont = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 100)
-acknowledgeFont = pygame.font.Font(None, 300)
+hornFont = pygame.font.Font(None, 130)
+alarmFont = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 140)
+acknowledgeFont = pygame.font.Font(None, 280)
 myFont = pygame.font.SysFont('Arial', 50)
 
 # "Corrected" alarms
@@ -86,7 +86,7 @@ image = {
 # Setting up FPS
 FPS = 60
 FramePerSec = pygame.time.Clock()
-displayFPSInfo = True
+displayFPSInfo = False
 executionStopwatch = 0.0
 
 # Global variables
@@ -383,16 +383,19 @@ alarmButtonY = int(SCREEN_HEIGHT / 2 - alarmButtonHeight / 2)
 
 topButtonY = 2*alarmButtonXSpacing
 topButtonHeight = alarmButtonY - topButtonY - alarmButtonXSpacing
-print(topButtonHeight)
 
-quitButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
-                    SCREEN_WIDTH - topButtonHeight*2 - alarmButtonXSpacing*2, topButtonY, 
+bottomButtonY = alarmButtonY + alarmButtonHeight + alarmButtonXSpacing
+bottomButtonHeight = SCREEN_HEIGHT - alarmButtonY - alarmButtonHeight - alarmButtonXSpacing*2
+toggleNightModeButtonWidth = int(bottomButtonHeight*1.72)
+
+quitButton = button(DISPLAYSURF, [],#scenes["default"], scenes["acknowledge"]
+                    SCREEN_WIDTH - topButtonHeight*2 - alarmButtonXSpacing*3, topButtonY, 
                     topButtonHeight*2, topButtonHeight, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
 resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                            int(alarmButtonXSpacing*2 + (alarmButtonWidth-300-alarmButtonXSpacing-topButtonHeight)/2), topButtonY, 
+                            alarmButtonXSpacing*3, topButtonY, 
                             300, topButtonHeight, 
                             pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
                             onClickFunction=resetFixesAlarm)
@@ -404,8 +407,8 @@ fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]]
                          onClickFunction=toggleFixesAlarmMute)
 
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
-                               alarmButtonWidth+alarmButtonXSpacing*5, alarmButtonXSpacing*2, 
-                               int(topButtonHeight*1.72), topButtonHeight, 
+                               SCREEN_WIDTH - toggleNightModeButtonWidth-7 - alarmButtonXSpacing*2, bottomButtonY+4, #alarmButtonWidth+alarmButtonXSpacing*5
+                               toggleNightModeButtonWidth, bottomButtonHeight-11, 
                                defaultImage=image["toggleDayMode"], 
                                onClickFunction=toggleNightMode)
 
@@ -428,18 +431,18 @@ GeneralAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]],
 GeneralAlarmButton.justificationType = "centered"
 GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
 
-acknowledgeSize: tuple[int, int] = (int(60 * 1.8), int(80 * 1.8))
+
 Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]], 
-                        acknowledgeSize[0], acknowledgeSize[1], 
-                        SCREEN_WIDTH - (acknowledgeSize[0] * 2), SCREEN_HEIGHT - (acknowledgeSize[1] * 2), 
+                            alarmButtonXSpacing*2, alarmButtonY, 
+                            alarmButtonWidth*2 + alarmButtonXSpacing, alarmButtonHeight,
                         text="Acknowledge", myFont=acknowledgeFont, textColor=pygame.Color(0, 0, 0, 255), 
                         borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(225, 0, 0, 255),
                         onClickFunction=stopAlarm,
                         borderRadius=150, borderWidth=5)
 
-hornButton = squircleButton(DISPLAYSURF, [scenes["default"]],
-                            alarmButtonXSpacing*2, alarmButtonY + alarmButtonHeight + alarmButtonXSpacing, 
-                            SCREEN_WIDTH-alarmButtonXSpacing*4, SCREEN_HEIGHT - alarmButtonY - alarmButtonHeight - alarmButtonXSpacing*2,
+hornButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
+                            alarmButtonXSpacing*2, bottomButtonY, 
+                            toggleNightModeButton.x-alarmButtonXSpacing*3, bottomButtonHeight,
                             text="Horn", myFont=hornFont, textColor=pygame.Color(0, 0, 0, 255), 
                             borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(140, 140, 140, 255),
                             onClickFunction=playHornFunc,
@@ -451,7 +454,11 @@ del alarmButtonXSpacing
 del alarmButtonWidth
 del alarmButtonHeight
 del alarmButtonY
-del acknowledgeSize
+del topButtonY
+del topButtonHeight
+del bottomButtonY
+del bottomButtonHeight
+del toggleNightModeButtonWidth
 setIgnoreNextPress()
 
 
@@ -578,9 +585,12 @@ while __name__ == "__main__":
                 
                 if alarm_data.get("Acknowledge") is True:
                     stopAlarm()
+                    needsRedraw = True
                 elif alarm_data.get("DCSAlarm") is True:
                     DCSAlarmObj.playAlarm(dontPublish=True)
+                    needsRedraw = True
                 elif alarm_data.get("GeneralAlarm") is True:
+                    needsRedraw = True
                     GeneralAlarmObj.playAlarm(dontPublish=True)
                 
 
