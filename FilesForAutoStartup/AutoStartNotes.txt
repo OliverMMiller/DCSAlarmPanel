@@ -15,7 +15,11 @@ sudo reboot
 
 # ssh:
 ssh donfigol@NTC-Instructor-Station-PI
+ssh donfigol@NTC-Operations-Room-PI
 
+#Hostames
+NTC-Instructor-Station-PI
+NTC-Operations-Room-PI
 
 # kill and rerun startup script:
 pkill -f "python3.*InstructorPanel"
@@ -61,10 +65,14 @@ vcgencmd measure_temp
 
 # view log
 tail /home/donfigol/DCSAlarmPanel/ServiceLog.log
+tail /home/donfigol/DCSAlarmPanel/MQTTlog
 
 # follow log in real-time:
 tail -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
+tail -f /home/donfigol/DCSAlarmPanel/MQTTlog
 
+#windows version
+    Get-Content MQTTlog.log -Tail 5 -Wait
 
 # check disk/filesystem health:
 sudo fsck -n /dev/mmcblk0p2
@@ -85,3 +93,12 @@ sudo apt upgrade -y
 
 # turn on Wi-Fi (persistent)
 sudo systemctl start wpa_supplicant.service
+
+
+#MQTT
+ShipSim/Alarm
+{
+  "DCSAlarm": false,
+  "GeneralAlarm": false,
+  "Acknowledge": false
+}

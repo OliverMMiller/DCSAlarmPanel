@@ -20,18 +20,26 @@
         "DISPLAYSURF",
         "intractables",
         "maxtime",
+        "mmcblk",
+        "Mosquitto",
         "MOUSEBUTTONDOWN",
         "MOUSEBUTTONUP",
+        "MOUSEMOTION",
+        "MQTT",
         "mspt",
         "NOFRAME",
         "Olivers",
+        "paho",
+        "reasoncodes",
         "squircle",
         "SRCALPHA",
         "tprint",
         "unmuted",
+        "vcgencmd",
         "WINDOWCLOSE",
         "WINDOWFOCUSGAINED",
-        "WINDOWFOCUSLOST"
+        "WINDOWFOCUSLOST",
+        "Xauthority"
     ],
     "python.testing.pytestArgs": [
         "."

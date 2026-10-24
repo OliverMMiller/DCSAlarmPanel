@@ -72,9 +72,11 @@ class squircle:
         if self.justificationType == "centered":
             x = self.width * self.xJustification - size[0] / 2
             y = self.height * self.yJustification - size[1] / 2
-        if self.justificationType == "absolute":
+        elif self.justificationType == "absolute":
             x = self.xJustification
             y = self.yJustification
+        else:
+            raise ValueError("justificationType must be 'centered' or 'absolute'")
         self.mySurface.blit(self.font.render(self.text, True, self.textColor), (x, y))
 
     def setText(self, text: str, font: pygame.font.Font, color: pygame.Color, 

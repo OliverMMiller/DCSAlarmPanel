@@ -1,6 +1,17 @@
 import queue
 import json
+import logging
+from pathlib import Path
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
+
+logging.basicConfig(
+    filename=Path(__file__).with_name("MQTT.log"),
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    encoding="utf-8",
+)
+logger = logging.getLogger(__name__)
 
 # 1. Initialize your thread-safe queue
 network_queue = queue.Queue()
@@ -9,28 +20,32 @@ network_queue = queue.Queue()
 def on_connect(client, userdata, flags, rc, properties=None):
     """Triggered automatically when the script successfully connects to Mosquitto."""
     if rc == 0:
-        print("Connected successfully to Mosquitto Broker!")
+        logger.info("Connected successfully to Mosquitto Broker")
         # Subscribe here so if the connection drops and reconnects, 
         # the subscriptions are automatically renewed.
         # '#' matches ShipSim/Alarm itself and any topics nested below it.
         result, mid = client.subscribe("ShipSim/Alarm/#")
         if result == mqtt.MQTT_ERR_SUCCESS:
-            print(f"Requested subscription to ShipSim/Alarm/# (mid={mid})")
+            logger.info("Requested subscription to ShipSim/Alarm/# (mid=%s)", mid)
         else:
-            print(f"Subscription request failed with result code {result}")
+            logger.error("Subscription request failed with result code %s", result)
     else:
-        print(f"Connection failed with result code {rc}")
+        logger.error("Connection failed with result code %s", rc)
 
 def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
     """Triggered when the broker acknowledges a subscription request."""
-    print(f"Subscription acknowledged (mid={mid}, result={reason_code_list})")
+    logger.info(
+        "Subscription acknowledged (mid=%s, result=%s)",
+        mid,
+        reason_code_list,
+    )
 
 def on_message(client, userdata, msg):
     """Triggered automatically whenever a message arrives on a subscribed topic."""
-    print(
-        f"[MQTT] Received {msg.topic} -> "
-        f"{msg.payload.decode('utf-8', errors='replace')}",
-        flush=True,
+    logger.info(
+        "Received %s -> %s",
+        msg.topic,
+        msg.payload.decode("utf-8", errors="replace"),
     )
 
     try:
@@ -50,17 +65,17 @@ def on_message(client, userdata, msg):
 
                 result = client.publish(msg.topic, json.dumps(reset_payload))
                 if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                    print(
-                        f"[MQTT] Deactivating {', '.join(active_alarms)} "
-                        f"on {msg.topic}",
-                        flush=True,
+                    logger.info(
+                        "Deactivating %s on %s",
+                        ", ".join(active_alarms),
+                        msg.topic,
                     )
                 else:
-                    print(
-                        f"[MQTT] Failed to deactivate "
-                        f"{', '.join(active_alarms)} on {msg.topic} "
-                        f"(result code {result.rc})",
-                        flush=True,
+                    logger.error(
+                        "Failed to deactivate %s on %s (result code %s)",
+                        ", ".join(active_alarms),
+                        msg.topic,
+                        result.rc,
                     )
         
         # Package everything neatly for your Pygame loop
@@ -73,14 +88,18 @@ def on_message(client, userdata, msg):
         network_queue.put(queue_item)
         
     except json.JSONDecodeError:
-        print(f"Warning: Received non-JSON payload on topic {msg.topic}: {msg.payload}")
+        logger.warning(
+            "Received non-JSON payload on topic %s: %r",
+            msg.topic,
+            msg.payload,
+        )
     except Exception as e:
-        print(f"Error handling incoming MQTT message: {e}")
+        logger.exception("Error handling incoming MQTT message: %s", e)
 
 # 3. Configure and Initialize the Client
 # NOTE: paho-mqtt v2.0+ requires specifying the API version explicitly
 try:
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client = mqtt.Client(CallbackAPIVersion.VERSION2)
 except AttributeError:
     # Fallback for older paho-mqtt 1.x environments just in case
     client = mqtt.Client()
@@ -89,17 +108,48 @@ client.on_connect = on_connect
 client.on_subscribe = on_subscribe
 client.on_message = on_message
 
-# 4. Establish Connection to your Laptop's Broker
-BROKER_IP = "127.0.0.1"
+# 4. Establish Connection to MQTT Broker
+BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 
-print(f"Connecting to broker at {BROKER_IP}:{BROKER_PORT}...")
+logger.info("Connecting to broker at %s:%s", BROKER_IP, BROKER_PORT)
 client.connect(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
 
 # 5. Spin up the non-blocking background thread
 # This manages network traffic completely independently of your graphics loop.
 client.loop_start()
+
+
+
+
+# Example reset: publish JSON booleans and retain the message on the broker.
+reset_payload = {
+    "DCSAlarm": False,
+    "GeneralAlarm": False,
+    "Acknowledge": False,
+}
+publish_result = client.publish(
+    "Ship/Alarm",
+    json.dumps(reset_payload),
+    retain=True,
+)
+
+# ClearMsg = MQTT_Client.publish("Ship/Alarm", json.dumps({
+#     "DCSAlarm": False,
+#     "GeneralAlarm": False,
+#     "Acknowledge": False,
+# }), retain=True,)
+
+if publish_result.rc != mqtt.MQTT_ERR_SUCCESS:
+    logger.error(
+        "Failed to publish retained reset to Ship/Alarm (result code %s)",
+        publish_result.rc,
+    )
+else:
+    logger.info("Published retained reset to Ship/Alarm")
+
+
 
 
 # =======================================================
@@ -123,7 +173,7 @@ while True:
             GeneralAlarm = alarm_data.get("GeneralAlarm")
             Acknowledge = alarm_data.get("Acknowledge") 
             
-            print(f"[Pygame Thread] Processing network update for {topic} -> Data: {alarm_data}")
+            logger.info("Processing network update for %s -> Data: %s", topic, alarm_data)
             
             # map_to_alarm_objects(topic, alarm_status)
             
