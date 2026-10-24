@@ -150,7 +150,7 @@ activemq-data/
 # Environments
 .env
 .envrc
-#.venv
+.venv
 env/
 venv/
 ENV/
@@ -222,7 +222,5 @@ __marimo__/
 /pygame_ce-2.5.7-cp314-cp314-win_amd64.whl
 /MQTT Test
 /MQTTlog.log
-/DCSUIPlayground.drawio
 /images/ToggleDayMode.png
 /images/ToggleNightMode.png
-/.$DCSUIPlayground.drawio.bkp

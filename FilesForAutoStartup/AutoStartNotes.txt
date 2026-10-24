@@ -102,3 +102,5 @@ ShipSim/Alarm
   "GeneralAlarm": false,
   "Acknowledge": false
 }
+#auto generate requirements.txt:
+pip freeze > requirements.txt

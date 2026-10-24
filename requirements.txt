@@ -1,0 +1,8 @@
+numpy==2.5.1
+packaging==26.3
+paho-mqtt==2.1.0
+pygame-ce==2.5.7
+setuptools==83.0.0
+setuptools-scm==10.2.1
+vcs-versioning==2.2.4
+wheel==0.47.0
