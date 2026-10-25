@@ -164,7 +164,7 @@ class TextPrint:
 #Show credits while loading the program
 DISPLAYSURF.fill("#202020")
 creditsText = TextPrint()
-creditsText.font1 = pygame.font.Font(None, 40)
+creditsText.font1 = pygame.font.Font(None, 80)
 creditsText.color = pygame.Color("#FFFFFF")
 
 creditsText.line_height = creditsText.font1.get_height() + 10
@@ -538,7 +538,7 @@ MQTT_Client.on_disconnect = on_disconnect
 
 
 # 4. Establish Connection to MQTT Broker
-BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
+BROKER_IP = "127.0.0.1"#"NTC-Operations-Room-PI"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 reattemptConnectionTime: float = 30.0

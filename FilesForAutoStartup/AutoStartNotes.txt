@@ -73,11 +73,13 @@ vcgencmd measure_temp
 
 # view log
 tail /home/donfigol/DCSAlarmPanel/ServiceLog.log
-tail /home/donfigol/DCSAlarmPanel/MQTTlog
+tail /home/donfigol/DCSAlarmPanel/MQTTlog.log
+tail /home/donfigol/DCSAlarmPanel/panelLog.log
 
 # follow log in real-time:
 tail -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
-tail -f /home/donfigol/DCSAlarmPanel/MQTTlog
+tail -f /home/donfigol/DCSAlarmPanel/MQTTlog.log
+tail -f /home/donfigol/DCSAlarmPanel/panelLog.log
 
 #windows powershell version
     Get-Content MQTTlog.log -Tail 5 -Wait

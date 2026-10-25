@@ -158,7 +158,7 @@ class TextPrint:
 #Show credits while loading the program
 DISPLAYSURF.fill("#202020")
 creditsText = TextPrint()
-creditsText.font1 = pygame.font.Font(None, 40)
+creditsText.font1 = pygame.font.Font(None, 80)
 creditsText.color = pygame.Color("#FFFFFF")
 
 creditsText.line_height = creditsText.font1.get_height() + 10
@@ -498,7 +498,7 @@ MQTT_Client.connect_async(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
 MQTT_Client.loop_start()
 
 #show credits for minimum 4 seconds before starting main loop
-#time.sleep(4)#####################################################################################################################################
+time.sleep(4)#####################################################################################################################################
 
 #clear the event queue to avoid any queued events from before the program started
 pygame.event.clear()
