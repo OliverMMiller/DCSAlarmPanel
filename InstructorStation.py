@@ -466,8 +466,12 @@ BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 reattemptConnectionTime: float = 30.0
-reattemptConnectionTimer: float = 0.0
+reattemptConnectionTimer: float = time.monotonic()
     
+# Configure the broker before the network thread attempts its first reconnect.
+MQTTLogger.info("Connecting to broker at %s:%s", BROKER_IP, BROKER_PORT)
+MQTT_Client.connect_async(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
+
 # 5. Spin up the non-blocking background thread
 # This manages network traffic completely independently of the graphics loop.
 MQTT_Client.loop_start()

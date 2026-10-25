@@ -41,12 +41,17 @@ boatHorn = pygame.mixer.Sound("sound/shipHorn.wav")
 boatHorn.set_volume(1.00)
 
 # Set up logging
+log_path = Path(__file__).with_name("MQTTlog.log")
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename=log_path,
+                    filemode='w')
 console = logging.StreamHandler()
 console.setLevel(logging.WARNING)
 consoleFormatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
 console.setFormatter(consoleFormatter)
 logging.getLogger().addHandler(console)
-
 
 
 log_path = Path(__file__).with_name("MQTTlog.log")
@@ -521,8 +526,12 @@ BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 reattemptConnectionTime: float = 30.0
-reattemptConnectionTimer: float = 0.0
+reattemptConnectionTimer: float = time.monotonic()
     
+# Configure the broker before the network thread attempts its first reconnect.
+MQTTLogger.info("Connecting to broker at %s:%s", BROKER_IP, BROKER_PORT)
+MQTT_Client.connect_async(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
+
 # 5. Spin up the non-blocking background thread
 # This manages network traffic completely independently of the graphics loop.
 MQTT_Client.loop_start()

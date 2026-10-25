@@ -2,6 +2,11 @@
 git clone https://github.com/OliverMMiller/DCSAlarmPanel
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.desktop ~/.config/autostart/
+
+python -m venv env
+source env/bin/activate
+pip install -r requirements.txt
+
 chmod +x /home/donfigol/Desktop/StartPanel.sh
 sudo reboot
 # it should now just work
@@ -11,6 +16,8 @@ sudo reboot
 
 # NOTE: Uses XDG autostart (Panel.desktop) not systemd service
 # App starts automatically on desktop login via ~/.config/autostart/Panel.desktop
+
+
 
 
 # ssh:
@@ -42,7 +49,8 @@ nano /home/donfigol/Desktop/StartPanel.sh
 # main files
 /home/donfigol/DCSAlarmPanel
 OliversButtonModule.py
-python3 /home/donfigol/DCSAlarmPanel/InstructorPanel.py
+python3 /home/donfigol/DCSAlarmPanel/HelmStation.py
+python3 /home/donfigol/DCSAlarmPanel/InstructorStation.py
 /home/donfigol/DCSAlarmPanel/FilesForAutoStartup
 
 
@@ -106,5 +114,7 @@ ShipSim/Alarm
 pip freeze > requirements.txt
 
 pip install -r requirements.txt
+
+apt install python3-requirements.txt
 
 pip install --upgrade --upgrade-strategy eager -r requirements.txt
