@@ -32,7 +32,6 @@ DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FUL
 pygame.display.set_caption('DCS Alarm Panel')
 needsRedraw = True
 
-print(pygame.display.get_window_size())
 
 # Setting up mixer
 pygame.mixer.music.set_volume(1.00)
@@ -42,12 +41,21 @@ boatHorn = pygame.mixer.Sound("sound/shipHorn.wav")
 boatHorn.set_volume(1.00)
 
 # Set up logging
-log_path = Path(__file__).with_name("MQTTlog.log")
-log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+console = logging.StreamHandler()
+console.setLevel(logging.WARNING)
+consoleFormatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+console.setFormatter(consoleFormatter)
+logging.getLogger().addHandler(console)
 
-MQTTLogger = logging.getLogger("DCSAlarmPanel")
+
+
+log_path = Path(__file__).with_name("MQTTlog.log")
+log_formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")#%(asctime)s %(levelname)s %(message)s
+
+MQTTLogger = logging.getLogger("DCSAlarmPanel-MQTT")
 MQTTLogger.setLevel(logging.INFO)
 MQTTLogger.propagate = False
+DEBUGMODE = True #################################################################
 
 rotating_handler = RotatingFileHandler(
     log_path,
@@ -58,7 +66,7 @@ rotating_handler = RotatingFileHandler(
 rotating_handler.setFormatter(log_formatter)
 MQTTLogger.addHandler(rotating_handler)
 
-MQTTLogger.info("Starting DCS Alarm Panel")
+logging.info("Starting DCS Alarm Panel")
 
 #network queue for MQTT messages
 network_queue = queue.Queue()
@@ -79,14 +87,14 @@ GeneralAlarm = pygame.mixer.Sound("sound/HalifaxActionAlarm.wav")
 image = {
     "muted": pygame.image.load("images/Muted.png").convert_alpha(),
     "unmuted": pygame.image.load("images/Unmuted.png").convert_alpha(),
-    "toggleNightMode": pygame.image.load("images/ToggleDayMode_trimmed.png").convert_alpha(),#images/ToggleDayMode.png
-    "toggleDayMode": pygame.image.load("images/ToggleNightMode_trimmed.png").convert_alpha(),#images/ToggleNightMode.png
+    "toggleNightMode": pygame.image.load("images/ToggleDayMode_trimmed.png").convert_alpha(),
+    "toggleDayMode": pygame.image.load("images/ToggleNightMode_trimmed.png").convert_alpha(),
 }
 
 # Setting up FPS
 FPS = 60
 FramePerSec = pygame.time.Clock()
-displayFPSInfo = False
+displayFPSInfo = DEBUGMODE
 executionStopwatch = 0.0
 
 # Global variables
@@ -388,7 +396,7 @@ bottomButtonY = alarmButtonY + alarmButtonHeight + alarmButtonXSpacing
 bottomButtonHeight = SCREEN_HEIGHT - alarmButtonY - alarmButtonHeight - alarmButtonXSpacing*2
 toggleNightModeButtonWidth = int(bottomButtonHeight*1.72)
 
-quitButton = button(DISPLAYSURF, [],#scenes["default"], scenes["acknowledge"]
+quitButton = button(DISPLAYSURF, [[],[scenes["default"], scenes["acknowledge"]]][DEBUGMODE],
                     SCREEN_WIDTH - topButtonHeight*2 - alarmButtonXSpacing*3, topButtonY, 
                     topButtonHeight*2, topButtonHeight, 
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
@@ -520,7 +528,7 @@ reattemptConnectionTimer: float = 0.0
 MQTT_Client.loop_start()
 
 #show credits for minimum 4 seconds before starting main loop
-#time.sleep(4)#####################################################################################################################################
+time.sleep(4)#####################################################################################################################################
 
 #clear the event queue to avoid any queued events from before the program started
 pygame.event.clear()
