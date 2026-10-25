@@ -45,30 +45,51 @@ waterSplash.set_volume(0.90)
 
 
 # Set up logging
-console = logging.StreamHandler()
-console.setLevel(logging.WARNING)
-consoleFormatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-console.setFormatter(consoleFormatter)
-logging.getLogger().addHandler(console)
+log_formatter = logging.Formatter(
+    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M',
+)
 
-
-
-log_path = Path(__file__).with_name("MQTTlog.log")
-log_formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")#%(asctime)s %(levelname)s %(message)s
-
-MQTTLogger = logging.getLogger("DCSAlarmPanel-MQTT")
-MQTTLogger.setLevel(logging.INFO)
-MQTTLogger.propagate = False
-DEBUGMODE = True #################################################################
-
-rotating_handler = RotatingFileHandler(
-    log_path,
+panel_handler = RotatingFileHandler(
+    Path(__file__).with_name("panelLog.log"),
     maxBytes=1_000_000,
     backupCount=3,
     encoding="utf-8",
 )
-rotating_handler.setFormatter(log_formatter)
-MQTTLogger.addHandler(rotating_handler)
+panel_handler.setLevel(logging.DEBUG)
+panel_handler.setFormatter(log_formatter)
+panel_handler.addFilter(
+    lambda record: record.name != MQTTLogger.name or record.levelno >= logging.WARNING
+)
+
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(logging.Formatter(
+    '%(name)-12s %(levelname)-8s %(message)s'
+))
+console.addFilter(
+    lambda record: record.name != MQTTLogger.name or record.levelno >= logging.WARNING
+)
+
+mqtt_handler = RotatingFileHandler(
+    Path(__file__).with_name("MQTTlog.log"),
+    maxBytes=1_000_000,
+    backupCount=3,
+    encoding="utf-8",
+)
+mqtt_handler.setLevel(logging.DEBUG)
+mqtt_handler.setFormatter(log_formatter)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[panel_handler, console, mqtt_handler],
+)
+
+MQTTLogger = logging.getLogger("DCSAlarmPanel-MQTT")
+MQTTLogger.setLevel(logging.INFO)
+MQTTLogger.propagate = True
+
+DEBUGMODE = False #################################################################
 
 logging.info("Starting DCS Alarm Panel")
 
