@@ -227,3 +227,6 @@ __marimo__/
 /.venvOld
 /panelLog.log
 /Password.txt
+/MQTTlog.log.1
+/MQTTlog.log.2
+/MQTTlog.log.3

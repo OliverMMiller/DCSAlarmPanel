@@ -57,6 +57,7 @@ class button():
 
         for num in range(len(parentScenes)):
             parentScenes[num].insert(0,self)
+            #parentScenes[num].append(self)
 
     # def __repr__(self):
     #     return self.__name__

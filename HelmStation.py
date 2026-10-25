@@ -29,7 +29,8 @@ pygame.mixer.init()
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1200
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED ))  # | pygame.NOFRAME  pygame.RESIZABLE
-pygame.display.set_caption('DCS Alarm Panel')
+myProgramName = "Master DCS Alarm Panel"
+pygame.display.set_caption(myProgramName)
 needsRedraw = True
 
 
@@ -87,7 +88,7 @@ MQTTLogger.propagate = True
 
 DEBUGMODE = False #################################################################
 
-logging.info("Starting DCS Alarm Panel")
+logging.info(f"Starting {myProgramName}")
 
 #network queue for MQTT messages
 network_queue = queue.Queue()
@@ -127,6 +128,7 @@ nextFix = time.localtime().tm_min + AlarmTime - 1 + (round(time.localtime().tm_s
 timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60
 previousSeconds = -1
 fixesAlarmMuted = True
+fixesAlarmSyncStatus: bool = False
 mousePos: tuple[int,int] = (0,0)
 
 # Scenes
@@ -185,7 +187,7 @@ class alarmObj:
     """
     Class to represent an alarm object.
     """
-    def __init__(self, alarmButton: button, alarmSound: pygame.mixer.Sound, MQTT_Alarm: dict[str, bool] | None = None) -> None:
+    def __init__(self, alarmButton: button, alarmSound: pygame.mixer.Sound, MQTT_Alarm: dict[str, bool | str] | None = None) -> None:
         self.alarmButton = alarmButton
         self.alarmSound = alarmSound
         self.MQTT_Alarm = MQTT_Alarm
@@ -283,12 +285,23 @@ def toggleNightMode() -> None:
     else:
         toggleNightModeButton.updateImages(image["toggleDayMode"])
 
-def resetFixesAlarm() -> None:
+def resetFixesAlarm(Publish: bool = True) -> None:
     """
     Resets the fixes alarm timer.
     """
     global nextFix
     nextFix = (time.localtime().tm_min + max(AlarmTime - 1, 0) + (round((seconds + 2) / 60))) % 60
+    global fixesAlarmSyncStatus
+    
+    if Publish:
+        MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                            "Sender": myProgramName,
+                            "Muted": fixesAlarmMuted,
+                            "RequestMuted": fixesAlarmMuted,
+                            "Sync": not fixesAlarmSyncStatus
+                            }, indent=4))
+    else:
+        fixesAlarmSyncStatus = not fixesAlarmSyncStatus
 
 def checkFixesAlarm() -> None:
     """
@@ -318,6 +331,23 @@ def toggleFixesAlarmMute() -> None:
         fixesMuteButton.updateImages(image["muted"])
     else:
         fixesMuteButton.updateImages(image["unmuted"])
+    MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                        "Sender": myProgramName,
+                        "Muted": fixesAlarmMuted,
+                        "RequestMuted": fixesAlarmMuted,
+                        "Sync": fixesAlarmSyncStatus
+                        }, indent=4))
+        
+def requestToggleFixesAlarmMute() -> None:
+    """
+    Requests a toggle of the mute state of the fixes alarm.
+    """
+    MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                        "Sender": myProgramName,
+                        "Muted": fixesAlarmMuted,
+                        "RequestMuted": not fixesAlarmMuted,
+                        "Sync": fixesAlarmSyncStatus
+                        }, indent=4))
 
 def setIgnoreNextPress() -> None:
     """
@@ -354,7 +384,12 @@ def on_connect(client, userdata, flags, reason_code: reasoncodes.ReasonCode, pro
     if result == mqtt.MQTT_ERR_SUCCESS:
         MQTTLogger.info("Requested subscription to ShipSim/Alarm/# (mid=%s)", mid)
     else:
-        MQTTLogger.error("Subscription request failed with result code %s", result)
+        MQTTLogger.error("Subscription request to ShipSim/Alarm/# failed with result code %s", result)
+    result, mid = client.subscribe("ShipSim/FixesTimer/#")
+    if result == mqtt.MQTT_ERR_SUCCESS:
+        MQTTLogger.info("Requested subscription to ShipSim/FixesTimer/# (mid=%s)", mid)
+    else:
+        MQTTLogger.error("Subscription request to ShipSim/FixesTimer/# failed with result code %s", result)
         
 def on_connect_fail(client, userdata):
     """Triggered automatically when the client cannot connect to the broker."""
@@ -416,6 +451,7 @@ topButtonHeight = alarmButtonY - topButtonY - alarmButtonXSpacing
 bottomButtonY = alarmButtonY + alarmButtonHeight + alarmButtonXSpacing
 bottomButtonHeight = SCREEN_HEIGHT - alarmButtonY - alarmButtonHeight - alarmButtonXSpacing*2
 toggleNightModeButtonWidth = int(bottomButtonHeight*1.72)
+fixesMuteButtonHeight = int(topButtonHeight*0.9)
 
 quitButton = button(DISPLAYSURF, [[],[scenes["default"], scenes["acknowledge"]]][DEBUGMODE],
                     SCREEN_WIDTH - topButtonHeight*2 - alarmButtonXSpacing*3, topButtonY, 
@@ -423,17 +459,18 @@ quitButton = button(DISPLAYSURF, [[],[scenes["default"], scenes["acknowledge"]]]
                     defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
                     onClickFunction=quitFunc)
 
-resetFixTimeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                            alarmButtonXSpacing*3, topButtonY, 
-                            300, topButtonHeight, 
-                            pygame.image.load("images/Blank-Blue.png").convert_alpha(), 
-                            onClickFunction=resetFixesAlarm)
-
 fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
-                         (resetFixTimeButton.x + resetFixTimeButton.width + alarmButtonXSpacing), resetFixTimeButton.y, 
-                         resetFixTimeButton.height, resetFixTimeButton.height, 
+                         (alarmButtonXSpacing*2 + alarmButtonWidth - topButtonHeight - int(alarmButtonWidth/8)), int(topButtonY + (topButtonHeight - fixesMuteButtonHeight)/2), 
+                         fixesMuteButtonHeight, fixesMuteButtonHeight, 
                          defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
-                         onClickFunction=toggleFixesAlarmMute)
+                         onClickFunction=requestToggleFixesAlarmMute)
+
+resetFixTimeButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                            alarmButtonXSpacing*2, topButtonY, 
+                            alarmButtonWidth, topButtonHeight, 
+                            text=None, myFont=myFont, textColor=pygame.Color("#000000FF"),
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color("#567fc6ff"), 
+                            onClickFunction=resetFixesAlarm)
 
 toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
                                SCREEN_WIDTH - toggleNightModeButtonWidth-7 - alarmButtonXSpacing*2, bottomButtonY+4, #alarmButtonWidth+alarmButtonXSpacing*5
@@ -467,7 +504,7 @@ Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]],
                         text="Acknowledge", myFont=acknowledgeFont, textColor=pygame.Color(0, 0, 0, 255), 
                         borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(225, 0, 0, 255),
                         onClickFunction=stopAlarm,
-                        borderRadius=150, borderWidth=5)
+                        borderRadius=100, borderWidth=5)
 
 hornButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
                             alarmButtonXSpacing*2, bottomButtonY, 
@@ -492,8 +529,8 @@ setIgnoreNextPress()
 
 
 # define alarm objects
-DCSAlarmObj = alarmObj(DCSAlarmButton, DCSAlarm, {"DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False})
-GeneralAlarmObj = alarmObj(GeneralAlarmButton, GeneralAlarm, {"DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False})
+DCSAlarmObj = alarmObj(DCSAlarmButton, DCSAlarm, {"Sender": myProgramName,"DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False})
+GeneralAlarmObj = alarmObj(GeneralAlarmButton, GeneralAlarm, {"Sender": myProgramName, "DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False})
 #add on-click function after defining alarm objects to avoid circular reference
 GeneralAlarmButton.onClickFunction = GeneralAlarmObj.playAlarm
 DCSAlarmButton.onClickFunction = DCSAlarmObj.playAlarm
@@ -501,12 +538,12 @@ DCSAlarmButton.onClickFunction = DCSAlarmObj.playAlarm
 # Setup TPrint stuff
 fixesAlarmPrinter = TextPrint()
 fixesAlarmPrinter.reset()
-fixesAlarmPrinter.font1 = pygame.font.Font(None, 110)
-fixesAlarmPrinter.x = resetFixTimeButton.x + 50
+fixesAlarmPrinter.font1 = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 90)
+fixesAlarmPrinter.x = resetFixTimeButton.x + int(resetFixTimeButton.width/10)
 fixesAlarmPrinter.y = resetFixTimeButton.y + int((resetFixTimeButton.height-fixesAlarmPrinter.font1.size("5 : 30")[1])/2)
 FPSPrinter = TextPrint()
 FPSPrinter.reset()
-FPSPrinter.font1 = pygame.font.Font(None, 40)
+FPSPrinter.font1 = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 40)
 FPSPrinter.x = 50
 FPSPrinter.y = 30
 
@@ -538,7 +575,7 @@ MQTT_Client.on_disconnect = on_disconnect
 
 
 # 4. Establish Connection to MQTT Broker
-BROKER_IP = "127.0.0.1"#"NTC-Operations-Room-PI"
+BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 reattemptConnectionTime: float = 30.0
@@ -565,7 +602,6 @@ while __name__ == "__main__":
         executionStopwatch = time.perf_counter()
 
     #Handle non-network (user) events
-    doubleClickBlacklist = []
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
             quitFunc()
@@ -583,10 +619,10 @@ while __name__ == "__main__":
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             needsRedraw = True
             mousePos = event.pos
-            for thisIntractable in hasOnClickFunction:
-                if thisIntractable not in doubleClickBlacklist and thisIntractable.myRect.collidepoint(event.pos):
+            for thisIntractable in hasOnClickFunction[::-1]:
+                if thisIntractable.myRect.collidepoint(event.pos):
                     thisIntractable.onClickFunction()
-                    doubleClickBlacklist.append(thisIntractable)
+                    break
 
             # if event.touch == 1:
             #     displayFPSInfo = False
@@ -616,16 +652,26 @@ while __name__ == "__main__":
 
                 MQTTLogger.debug("Processing network update for %s -> Data: %s", topic, alarm_data)
                 
-                if alarm_data.get("Acknowledge") is True:
-                    stopAlarm()
-                    needsRedraw = True
-                elif alarm_data.get("DCSAlarm") is True:
-                    DCSAlarmObj.playAlarm(dontPublish=True)
-                    needsRedraw = True
-                elif alarm_data.get("GeneralAlarm") is True:
-                    needsRedraw = True
-                    GeneralAlarmObj.playAlarm(dontPublish=True)
+                if topic == "ShipSim/Alarm":
+                    if alarm_data.get("Acknowledge") is True:
+                        stopAlarm()
+                        needsRedraw = True
+                    elif alarm_data.get("DCSAlarm") is True:
+                        DCSAlarmObj.playAlarm(dontPublish=True)
+                        needsRedraw = True
+                    elif alarm_data.get("GeneralAlarm") is True:
+                        needsRedraw = True
+                        GeneralAlarmObj.playAlarm(dontPublish=True)
+                        
+                elif topic == "ShipSim/FixesTimer":
+                    if alarm_data.get("Muted") == fixesAlarmMuted and  alarm_data.get("RequestMuted") != fixesAlarmMuted:
+                        toggleFixesAlarmMute()
+                    if alarm_data.get("Sync") != fixesAlarmSyncStatus:
+                        #fixesAlarmSyncStatus = alarm_data.get("Sync")
+                        resetFixesAlarm(Publish = False)
                 
+                else:
+                    MQTTLogger.warning(f"received msg from unknown topic: {topic}")
 
         except queue.Empty:
             pass
@@ -670,9 +716,8 @@ while __name__ == "__main__":
         for object in scenes[scene]:
             object.process(mousePos)
 
-
         # render fixes alarm time
-        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix} : {60 - seconds - 1:02}")
+        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix}:{60 - seconds - 1:02}")
 
         if displayFPSInfo:
             FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")

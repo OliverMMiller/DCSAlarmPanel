@@ -1,13 +1,15 @@
 # after a new os:
 git clone https://github.com/OliverMMiller/DCSAlarmPanel
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
+chmod +x /home/donfigol/Desktop/StartPanel.sh
+#mkdir -p ~/.config/autostart
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.desktop ~/.config/autostart/
+chmod 755 ~/.config/autostart/Panel.desktop
 
 python -m venv env
 source env/bin/activate
 pip install -r requirements.txt
 
-chmod +x /home/donfigol/Desktop/StartPanel.sh
 sudo reboot
 # it should now just work
 
@@ -29,11 +31,11 @@ NTC-Instructor-Station-PI
 NTC-Operations-Room-PI
 
 # kill and rerun startup script:
-pkill -f "python3.*InstructorPanel"
+pkill -f "python3.*InstructorStation"
 sleep 2
 DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
-pkill -f "python3.*AlarmPanel"
+pkill -f "python3.*HelmStation"
 sleep 2
 DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
@@ -44,6 +46,8 @@ DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPan
 
 # edit startup script
 nano /home/donfigol/Desktop/StartPanel.sh
+
+nano ~/.config/autostart/Panel.desktop
 
 
 # main files
@@ -112,6 +116,13 @@ ShipSim/Alarm
   "GeneralAlarm": false,
   "Acknowledge": false
 }
+ShipSim/FixesTimer
+{
+  "Muted": true,
+  "RequestMuted": true,
+  "Sync": false
+}
+
 #auto generate requirements.txt:
 pip freeze > requirements.txt
 

@@ -30,7 +30,8 @@ pygame.mixer.init()
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1200
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED ))  # | pygame.NOFRAME  pygame.RESIZABLE
-pygame.display.set_caption('DCS Alarm Instructor Panel')
+myProgramName = "DCS Alarm Instructor Panel"
+pygame.display.set_caption(myProgramName)
 needsRedraw = True
 
 # Setting up mixer
@@ -91,7 +92,7 @@ MQTTLogger.propagate = True
 
 DEBUGMODE = False #################################################################
 
-logging.info("Starting DCS Alarm Panel")
+logging.info(f"Starting {myProgramName}")
 
 #network queue for MQTT messages
 network_queue = queue.Queue()
@@ -236,13 +237,13 @@ def toggleNightMode() -> None:
 
 
 def DCSAlarmButtonFunc():
-    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False}, indent=4))
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False}, indent=4))
 
 def GeneralAlarmButtonFunc():
-    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False}, indent=4))
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False}, indent=4))
 
 def AcknowledgeButtonFunc():
-    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": True}, indent=4))
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": True}, indent=4))
         
 
 
@@ -441,7 +442,7 @@ semitoneSectionWidth = hornButton.width / len(semitonesList)  # Calculate the wi
 # Setup TPrint stuff
 hornExtraText = TextPrint()
 hornExtraText.reset()
-hornExtraText.font1 = pygame.font.Font(None, 25)
+hornExtraText.font1 = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 30)
 hornExtraText.color = pygame.Color("#000000")
 SplashExtraText = TextPrint()
 SplashExtraText.reset()
@@ -510,7 +511,6 @@ while __name__ == "__main__":
         executionStopwatch = time.perf_counter()
 
     #Handle non-network (user) events
-    doubleClickBlacklist = []
     for event in pygame.event.get():
         if event.type == QUIT:  # if program exited then end program
             quitFunc()
@@ -528,10 +528,10 @@ while __name__ == "__main__":
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             needsRedraw = True
             mousePos = event.pos
-            for thisIntractable in hasOnClickFunction:
-                if thisIntractable not in doubleClickBlacklist and thisIntractable.myRect.collidepoint(event.pos):
+            for thisIntractable in hasOnClickFunction[::-1]:
+                if thisIntractable.myRect.collidepoint(event.pos):
                     thisIntractable.onClickFunction()
-                    doubleClickBlacklist.append(thisIntractable)
+                    break
 
             # if event.touch == 1:
             #     displayFPSInfo = False

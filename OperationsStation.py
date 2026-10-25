@@ -1,0 +1,659 @@
+# Imports
+#general
+import sys
+import pygame
+import time
+from pathlib import Path
+import logging
+from logging.handlers import RotatingFileHandler
+from typing import Callable
+#pygame
+from pygame.locals import QUIT
+from OliversButtonModule import button as button
+from OliversSquircleModule import squircle as squircle
+#network
+import queue
+import json
+import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
+from paho.mqtt import reasoncodes
+    
+    
+# Initializing pygame and mixer
+pygame.mixer.pre_init(frequency=48000, buffer=2048)
+pygame.init()
+pygame.mixer.init()
+
+
+# Setting up screen
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1200
+DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED ))  # | pygame.NOFRAME  pygame.RESIZABLE
+myProgramName = "DCS Alarm Operations Panel"
+pygame.display.set_caption(myProgramName)
+needsRedraw = True
+
+# Setting up mixer
+pygame.mixer.music.set_volume(1.00)
+Notify = pygame.mixer.Sound("sound/Notify.wav")
+Notify.set_volume(0.5)
+
+
+# Set up logging
+log_formatter = logging.Formatter(
+    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M',
+)
+
+panel_handler = RotatingFileHandler(
+    Path(__file__).with_name("panelLog.log"),
+    maxBytes=1_000_000,
+    backupCount=3,
+    encoding="utf-8",
+)
+panel_handler.setLevel(logging.DEBUG)
+panel_handler.setFormatter(log_formatter)
+panel_handler.addFilter(
+    lambda record: record.name != MQTTLogger.name or record.levelno >= logging.WARNING
+)
+
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(logging.Formatter(
+    '%(name)-12s %(levelname)-8s %(message)s'
+))
+console.addFilter(
+    lambda record: record.name != MQTTLogger.name or record.levelno >= logging.WARNING
+)
+
+mqtt_handler = RotatingFileHandler(
+    Path(__file__).with_name("MQTTlog.log"),
+    maxBytes=1_000_000,
+    backupCount=3,
+    encoding="utf-8",
+)
+mqtt_handler.setLevel(logging.DEBUG)
+mqtt_handler.setFormatter(log_formatter)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[panel_handler, console, mqtt_handler],
+)
+
+MQTTLogger = logging.getLogger("DCSAlarmPanel-MQTT")
+MQTTLogger.setLevel(logging.INFO)
+MQTTLogger.propagate = True
+
+DEBUGMODE = False #################################################################
+
+logging.info(f"Starting {myProgramName}")
+
+#network queue for MQTT messages
+network_queue = queue.Queue()
+
+MQTT_Clear_json = {"DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": False}
+
+# Setting up fonts
+alarmFont = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 120)
+acknowledgeFont = pygame.font.Font(None, 150)
+myFont = pygame.font.SysFont('Arial', 50)
+
+
+# Images
+image = {
+    "muted": pygame.image.load("images/Muted.png").convert_alpha(),
+    "unmuted": pygame.image.load("images/Unmuted.png").convert_alpha(),
+    "toggleNightMode": pygame.image.load("images/ToggleDayMode_trimmed.png").convert_alpha(),
+    "toggleDayMode": pygame.image.load("images/ToggleNightMode_trimmed.png").convert_alpha(),
+}
+
+# Setting up FPS
+FPS = 60
+FramePerSec = pygame.time.Clock()
+displayFPSInfo = DEBUGMODE
+executionStopwatch = 0.0
+
+# Global variables
+currentAlarm = None
+AlarmTime = 6  # Minutes
+ResetNext = False
+nightMode = False
+nextFix = time.localtime().tm_min + AlarmTime - 1 + (round(time.localtime().tm_sec / 60))
+timeUntilNextFix = (60 - time.localtime().tm_min + nextFix) % 60
+previousSeconds = -1
+fixesAlarmMuted: bool = True
+fixesAlarmSyncStatus = False
+mousePos: tuple[int,int] = (0,0)
+
+# Scenes
+scenes = {"default": [], "acknowledge": []}
+scene = "default"
+nextScene = "default"
+
+
+class TextPrint:
+    """
+    Class to handle text printing on the screen.
+    """
+    def __init__(self):
+        self.reset()
+        self.font1 = pygame.font.Font(None, 90)
+        self.color = pygame.Color(0, 0, 0)
+
+    def tprint(self, screen, text, moveDown=False) -> None:
+        """
+        Prints text on the screen.
+        """
+        for i in text.splitlines():
+            text_bitmap = self.font1.render(i, True, self.color)
+            screen.blit(text_bitmap, (self.x, self.y))
+            if moveDown:
+                self.y += self.line_height
+
+    def reset(self) -> None:
+        """
+        Resets the text position.
+        """
+        self.x = 50
+        self.y = 50
+        self.line_height = 80
+        
+#Show credits while loading the program
+DISPLAYSURF.fill("#202020")
+creditsText = TextPrint()
+creditsText.font1 = pygame.font.Font(None, 80)
+creditsText.color = pygame.Color("#FFFFFF")
+
+creditsText.line_height = creditsText.font1.get_height() + 10
+
+creditsText.x = int(creditsText.line_height)
+creditsText.y = int(SCREEN_HEIGHT) - (creditsText.line_height * 6)
+
+creditsText.tprint(DISPLAYSURF, 
+"""Contributed by CPO1 Miller, Oliver
+    Chief Bosun's Mate, RCSCC Undaunted 2025
+
+Support:
+https://github.com/OliverMMiller/DCSAlarmPanel""", moveDown=True)
+pygame.display.update()
+del creditsText
+
+
+class squircleButton(squircle, button):
+    """
+    Class to represent a button with a squircle shape.
+    """
+    def __init__(self, DISPLAYSURF: pygame.Surface, scenes: list, x: int, y: int, width: int, height: int,
+                 text: str | None, myFont: pygame.font.Font | None, textColor: pygame.Color | None,
+                 borderColor: pygame.Color | None, fillColor: pygame.Color | None,
+                 onClickFunction: Callable | None,
+                 borderRadius: int = 50, borderWidth: int = 3) -> None:
+        """_summary_
+
+        Args:
+            DISPLAYSURF (pygame.Surface): surface to draw self onto when process is called
+            scenes (list): scenes to add self
+            x (int): distance from left of screen
+            y (int): distance from top of screen
+            width (int): width of self
+            height (int): height of self
+            text (str | None): text to display on button
+            myFont (pygame.font.Font | None): font of text
+            textColor (pygame.Color | None): text color
+            borderColor (pygame.Color | None): border color
+            fillColor (pygame.Color | None): fill color
+            onClickFunction (Callable): function to run when button clicked
+            borderRadius (int, optional): corner radius. Defaults to 50.
+            borderWidth (int, optional): border width. Defaults to 3.
+
+        Raises:
+            ValueError: _description_
+        """        
+        squircle.__init__(self, width, height, fillColor, borderRadius, borderWidth, borderColor=borderColor)
+        if text:
+            if not (myFont and textColor):
+                raise ValueError("myFont and textColor must be provided if text is provided")
+            self.setText(text, myFont, textColor)
+        button.__init__(self, DISPLAYSURF, scenes, x, y, width, height,
+                        defaultImage=self.mySurface, onClickFunction=onClickFunction)
+
+# Define functions
+def quitFunc() -> None:
+    """
+    Quits the program when the 'Quit' button is pressed.
+    """
+    MQTT_Client.disconnect()
+    MQTTLogger.info("Disconnected due to program close")
+    pygame.quit()
+    sys.exit()
+
+def toggleNightMode() -> None:
+    """
+    Toggles between night mode and day mode.
+    """
+    global nightMode
+    if nightMode := not nightMode:
+        toggleNightModeButton.updateImages(image["toggleNightMode"])
+    else:
+        toggleNightModeButton.updateImages(image["toggleDayMode"])
+
+def resetFixesAlarm(Publish: bool = True) -> None:
+    """
+    Resets the fixes alarm timer.
+    """
+    global nextFix
+    nextFix = (time.localtime().tm_min + max(AlarmTime - 1, 0) + (round((seconds + 2) / 60))) % 60
+    global fixesAlarmSyncStatus
+    
+    if Publish:
+        MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                            "Sender": myProgramName,
+                            "Muted": fixesAlarmMuted,
+                            "RequestMuted": fixesAlarmMuted,
+                            "Sync": not fixesAlarmSyncStatus
+                            }, indent=4))
+    else:
+        fixesAlarmSyncStatus = not fixesAlarmSyncStatus
+
+def checkFixesAlarm() -> None:
+    """
+    Checks and updates the fixes alarm timer.
+    """
+    global nextFix
+    global timeUntilNextFix
+    global ResetNext
+    mins = time.localtime().tm_min
+    if timeUntilNextFix == 0 and seconds == 59:
+        ResetNext = True
+    elif ResetNext and seconds == 0:  # Checks if timer needs to be reset
+        ResetNext = False
+        nextFix = (mins + max(AlarmTime - 1, 0)) % 60
+        if not fixesAlarmMuted:
+            Notify.play(loops=1, fade_ms=0)
+    elif timeUntilNextFix > AlarmTime:
+        resetFixesAlarm()
+    timeUntilNextFix = ((60 - mins) + nextFix) % 60  # Calculate timeUntilNextFix
+
+def toggleFixesAlarmMute() -> None:
+    """
+    Toggles the mute state of the fixes alarm.
+    """
+    global fixesAlarmMuted
+    if fixesAlarmMuted := not fixesAlarmMuted:
+        fixesMuteButton.updateImages(image["muted"])
+    else:
+        fixesMuteButton.updateImages(image["unmuted"])
+    MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                        "Sender": myProgramName,
+                        "Muted": fixesAlarmMuted,
+                        "RequestMuted": fixesAlarmMuted,
+                        "Sync": fixesAlarmSyncStatus
+                        }, indent=4))
+        
+def requestToggleFixesAlarmMute() -> None:
+    """
+    Requests a toggle of the mute state of the fixes alarm.
+    """
+    MQTT_Client.publish("ShipSim/FixesTimer", json.dumps({
+                        "Sender": myProgramName,
+                        "Muted": fixesAlarmMuted,
+                        "RequestMuted": not fixesAlarmMuted,
+                        "Sync": fixesAlarmSyncStatus
+                        }, indent=4))
+
+        
+
+
+
+def DCSAlarmButtonFunc():
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": True, "GeneralAlarm": False, "Acknowledge": False}, indent=4))
+
+def GeneralAlarmButtonFunc():
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": False, "GeneralAlarm": True, "Acknowledge": False}, indent=4))
+
+def AcknowledgeButtonFunc():
+    MQTT_Client.publish("ShipSim/Alarm", json.dumps({"Sender": myProgramName, "DCSAlarm": False, "GeneralAlarm": False, "Acknowledge": True}, indent=4))
+        
+
+
+
+
+# def setIgnoreNextPress() -> None:
+#     """
+#     Used to prevent double activations on one click.
+#     """
+#     Acknowledge.ignoreNextPress = True
+#     DCSAlarmButton.ignoreNextPress = True
+#     GeneralAlarmButton.ignoreNextPress = True
+#     resetFixTimeButton.ignoreNextPress = True
+
+
+#Define MQTT Event Callbacks
+def on_connect(client, userdata, flags, reason_code: reasoncodes.ReasonCode, properties):
+    """Triggered automatically when the script successfully connects to Mosquitto."""
+
+    if reason_code != 0:
+        MQTTLogger.error("Connection failed (reason_code=%s): %s", reason_code)
+        return
+    MQTTLogger.info("Connected to Mosquitto Broker")
+    
+    result, mid = client.subscribe("ShipSim/Alarm/#")
+    if result == mqtt.MQTT_ERR_SUCCESS:
+        MQTTLogger.info("Requested subscription to ShipSim/Alarm/# (mid=%s)", mid)
+    else:
+        MQTTLogger.error("Subscription request to ShipSim/Alarm/# failed with result code %s", result)
+    result, mid = client.subscribe("ShipSim/FixesTimer/#")
+    if result == mqtt.MQTT_ERR_SUCCESS:
+        MQTTLogger.info("Requested subscription to ShipSim/FixesTimer/# (mid=%s)", mid)
+    else:
+        MQTTLogger.error("Subscription request to ShipSim/FixesTimer/# failed with result code %s", result)
+        
+def on_connect_fail(client, userdata):
+    """Triggered automatically when the client cannot connect to the broker."""
+    MQTTLogger.warning("Failed to connect to Mosquitto Broker")
+
+def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+    """Triggered automatically when the client disconnects from the broker."""
+    if reason_code != 0:
+        MQTTLogger.warning("Unexpected disconnection (reason_code=%s)", reason_code)
+    else:
+        MQTTLogger.info("Disconnected from Mosquitto Broker")
+
+def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
+    """Triggered when the broker acknowledges a subscription request."""
+    MQTTLogger.info(
+        "Subscription acknowledged (mid=%s, result=%s)",
+        mid,
+        reason_code_list,
+    )
+
+def on_message(client, userdata, msg):
+    """Triggered automatically whenever a message arrives on a subscribed topic."""
+    MQTTLogger.info(
+        "Received %s -> %s",
+        msg.topic,
+        msg.payload.decode("utf-8", errors="replace"),
+    )
+
+    try:
+        # Decode bytes payload to string, then parse the JSON
+        payload_str = msg.payload.decode('utf-8')
+        payload_data = json.loads(payload_str)
+
+        queue_item = {
+            "topic": msg.topic,
+            "data": payload_data
+        }
+        
+        network_queue.put(queue_item)
+        
+    except json.JSONDecodeError:
+        MQTTLogger.warning(
+            "Received non-JSON payload on topic %s: %r",
+            msg.topic,
+            msg.payload,
+        )
+    except Exception as e:
+        MQTTLogger.exception("Error handling incoming MQTT message: %s", e)
+
+
+# Create button objects
+buttonSpacing = 60
+
+
+alarmButtonWidth = int((SCREEN_WIDTH - 5*buttonSpacing) / 2 )
+alarmButtonHeight = int((SCREEN_WIDTH - 5*buttonSpacing) / 2.5 )
+alarmButtonY = int(SCREEN_HEIGHT - alarmButtonHeight - buttonSpacing*2)
+
+topButtonY = 2*buttonSpacing
+topButtonHeight = alarmButtonY - topButtonY - buttonSpacing
+
+toggleNightModeButtonWidth = int(topButtonHeight*1.72)
+fixesMuteButtonHeight = int(topButtonHeight*0.9)
+
+
+quitButton = button(DISPLAYSURF, [[],[scenes["default"], scenes["acknowledge"]]][DEBUGMODE],
+                    SCREEN_WIDTH - 200 - buttonSpacing*2, buttonSpacing, 
+                    200, 100, 
+                    defaultImage=pygame.image.load("images/Quit.png").convert_alpha(), 
+                    onClickFunction=quitFunc)
+
+fixesMuteButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                         (buttonSpacing*2 + alarmButtonWidth - topButtonHeight - buttonSpacing), int(topButtonY + (topButtonHeight - fixesMuteButtonHeight)/2), 
+                         fixesMuteButtonHeight, fixesMuteButtonHeight, 
+                         defaultImage=pygame.image.load("images/Muted.png").convert_alpha(), 
+                         onClickFunction=requestToggleFixesAlarmMute)
+
+resetFixTimeButton = squircleButton(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]], 
+                            buttonSpacing*2, topButtonY, 
+                            alarmButtonWidth, topButtonHeight, 
+                            text=None, myFont=myFont, textColor=pygame.Color("#000000FF"),
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color("#567fc6ff"),
+                            onClickFunction=resetFixesAlarm,
+                            borderRadius=75, borderWidth=5)
+
+toggleNightModeButton = button(DISPLAYSURF, [scenes["default"], scenes["acknowledge"]],
+                               SCREEN_WIDTH - toggleNightModeButtonWidth - buttonSpacing*2, topButtonY,
+                               toggleNightModeButtonWidth, topButtonHeight, 
+                               defaultImage=image["toggleDayMode"], 
+                               onClickFunction=toggleNightMode)
+
+DCSAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                            buttonSpacing*2, alarmButtonY, 
+                            alarmButtonWidth, alarmButtonHeight,
+                            text="DCS\nAlarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(170, 0, 0, 255),
+                            onClickFunction=DCSAlarmButtonFunc,
+                            borderRadius=75, borderWidth=5)
+DCSAlarmButton.hoverImage = DCSAlarmButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+
+GeneralAlarmButton = squircleButton(DISPLAYSURF, [scenes["default"]], 
+                            buttonSpacing * 3 + alarmButtonWidth, alarmButtonY, 
+                            alarmButtonWidth, alarmButtonHeight, 
+                            text="General\nAlarm", myFont=alarmFont, textColor=pygame.Color(0, 0, 0, 255), 
+                            borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(170, 0, 0, 255),
+                            onClickFunction=GeneralAlarmButtonFunc,
+                            borderRadius=75, borderWidth=5)
+GeneralAlarmButton.justificationType = "centered"
+GeneralAlarmButton.hoverImage = GeneralAlarmButton.redraw(fillColor=pygame.Color(100, 100, 100, 255))
+
+Acknowledge = squircleButton(DISPLAYSURF, [scenes["acknowledge"]], 
+                            buttonSpacing*2, alarmButtonY, 
+                            alarmButtonWidth*2 + buttonSpacing, alarmButtonHeight,
+                        text="Acknowledge", myFont=acknowledgeFont, textColor=pygame.Color(0, 0, 0, 255), 
+                        borderColor=pygame.Color(0, 0, 0, 255), fillColor=pygame.Color(225, 0, 0, 255),
+                        onClickFunction=AcknowledgeButtonFunc,
+                        borderRadius=75, borderWidth=5)
+
+
+
+# Setup TPrint stuff
+fixesAlarmPrinter = TextPrint()
+fixesAlarmPrinter.reset()
+fixesAlarmPrinter.font1 = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 100)
+fixesAlarmPrinter.x = resetFixTimeButton.x + int(resetFixTimeButton.width/10)
+fixesAlarmPrinter.y = resetFixTimeButton.y + int((resetFixTimeButton.height-fixesAlarmPrinter.font1.size("5 : 30")[1])/2)
+FPSPrinter = TextPrint()
+FPSPrinter.reset()
+FPSPrinter.font1 = pygame.font.Font("fonts/LiberationMono/LiberationMono-Bold.ttf", 50)
+FPSPrinter.x = 50
+FPSPrinter.y = 30
+
+# Control which events are allowed on the queue
+pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN, pygame.WINDOWCLOSE,
+                          pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST, 
+                          pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP))
+
+
+hasOnClickFunction: list = []
+hasOnReleaseFunction: list = []
+for object in scenes[scene]:
+    if hasattr(object, "onClickFunction"):
+        if object.onClickFunction:
+            hasOnClickFunction.append(object)
+            if hasattr(object, "onReleaseFunction"):
+                if object.onReleaseFunction:
+                    hasOnReleaseFunction.append(object)
+                    
+# 3. Configure and Initialize the MQTT Client
+MQTT_Client = mqtt.Client(CallbackAPIVersion.VERSION2)
+
+MQTT_Client.on_connect = on_connect
+MQTT_Client.on_subscribe = on_subscribe
+MQTT_Client.on_message = on_message
+MQTT_Client.on_connect_fail = on_connect_fail
+MQTT_Client.on_disconnect = on_disconnect
+
+
+# 4. Establish Connection to MQTT Broker
+BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
+BROKER_PORT = 1883
+KEEP_ALIVE_SECONDS = 60
+reattemptConnectionTime: float = 30.0
+reattemptConnectionTimer: float = time.monotonic()
+    
+# Configure the broker before the network thread attempts its first reconnect.
+MQTTLogger.info("Connecting to broker at %s:%s", BROKER_IP, BROKER_PORT)
+MQTT_Client.connect_async(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
+
+# 5. Spin up the non-blocking background thread
+# This manages network traffic completely independently of the graphics loop.
+MQTT_Client.loop_start()
+
+#show credits for minimum 4 seconds before starting main loop
+time.sleep(4)#####################################################################################################################################
+
+#clear the event queue to avoid any queued events from before the program started
+pygame.event.clear()
+
+
+# Main control loop
+while __name__ == "__main__":
+    if displayFPSInfo:
+        executionStopwatch = time.perf_counter()
+
+    #Handle non-network (user) events
+    for event in pygame.event.get():
+        if event.type == QUIT:  # if program exited then end program
+            quitFunc()
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            quitFunc()
+        elif event.type == pygame.WINDOWFOCUSGAINED:
+            FPS = 60
+        elif event.type == pygame.WINDOWFOCUSLOST:
+            FPS = 2
+        elif event.type == pygame.WINDOWCLOSE:
+            quitFunc()
+        elif event.type == pygame.MOUSEMOTION:
+            needsRedraw = True
+            mousePos = event.pos
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            needsRedraw = True
+            mousePos = event.pos
+            for thisIntractable in hasOnClickFunction[::-1]:
+                if thisIntractable.myRect.collidepoint(event.pos):
+                    thisIntractable.onClickFunction()
+                    break
+
+            # if event.touch == 1:
+            #     displayFPSInfo = False
+            #     if quitButton in scenes["default"]:
+            #         scenes["default"].remove(quitButton)
+            #         scenes["acknowledge"].remove(quitButton)
+            # else:
+            #     scenes["default"].insert(0, quitButton)
+            #     scenes["acknowledge"].insert(0, quitButton)
+            #     quitButton.ignoreNextPress = True
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            needsRedraw = True
+            mousePos = event.pos
+            for thisIntractable in hasOnReleaseFunction:
+                if thisIntractable.myRect.collidepoint(event.pos):
+                    thisIntractable.onReleaseFunction()
+
+    #handle network events
+    if MQTT_Client.is_connected():
+        try:
+            while not network_queue.empty():
+                msg = network_queue.get_nowait()
+                
+                # Extract data components
+                topic = msg["topic"]
+                alarm_data = msg["data"]  #Parsed dictionary
+
+                MQTTLogger.debug("Processing network update for %s -> Data: %s", topic, alarm_data)
+                
+                if topic == "ShipSim/Alarm":
+                    if (alarm_data.get("DCSAlarm") == False and alarm_data.get("GeneralAlarm") == False and alarm_data.get("Acknowledge") == False):
+                        nextScene = "default"
+                        needsRedraw = True
+                    elif alarm_data.get("DCSAlarm") == True:
+                        nextScene = "acknowledge"
+                        needsRedraw = True
+                    elif alarm_data.get("GeneralAlarm") == True:
+                        nextScene = "acknowledge"
+                        needsRedraw = True
+                    
+                elif topic == "ShipSim/FixesTimer":
+                    if alarm_data.get("Muted") == fixesAlarmMuted and  alarm_data.get("RequestMuted") != fixesAlarmMuted:
+                        toggleFixesAlarmMute()
+                    if alarm_data.get("Sync") != fixesAlarmSyncStatus:
+                        #fixesAlarmSyncStatus = alarm_data.get("Sync")
+                        resetFixesAlarm(Publish = False)
+                
+                else:
+                    MQTTLogger.warning(f"received msg from unknown topic: {topic}")
+
+        except queue.Empty:
+            pass
+        
+    elif time.monotonic() - reattemptConnectionTimer > reattemptConnectionTime:
+        reattemptConnectionTimer = time.monotonic()
+        MQTTLogger.info("Connecting to broker at %s:%s", BROKER_IP, BROKER_PORT)
+        try:
+            MQTT_Client.connect_async(BROKER_IP, BROKER_PORT, KEEP_ALIVE_SECONDS)
+        except TimeoutError as e:
+            MQTTLogger.info(f"Failed to connect: {e}")
+
+    # determines if fixes timer needs to be calculated and redrawn
+    seconds = time.localtime().tm_sec
+    if previousSeconds != seconds:
+        checkFixesAlarm()
+        needsRedraw = True
+        previousSeconds = seconds
+
+
+    if needsRedraw:# or displayFPSInfo:
+        if nightMode:
+            DISPLAYSURF.fill("#202525")  # set background colour to night mode
+        else:
+            DISPLAYSURF.fill("#d0d0d0")  # set background colour to day mode
+
+        if scene != nextScene:
+            scene = nextScene
+            hasOnClickFunction: list = []
+            hasOnReleaseFunction: list = []
+            for object in scenes[scene]:
+                if hasattr(object, "onClickFunction"):
+                    if object.onClickFunction:
+                        hasOnClickFunction.append(object)
+                        if hasattr(object, "onReleaseFunction"):
+                            if object.onReleaseFunction:
+                                hasOnReleaseFunction.append(object)
+
+        # renders all objects in the current scene
+        for object in scenes[scene]:
+            object.process(mousePos)
+
+        # render fixes alarm time
+        fixesAlarmPrinter.tprint(DISPLAYSURF, F"{timeUntilNextFix}:{60 - seconds - 1:02}")
+
+        if displayFPSInfo:
+            FPSPrinter.tprint(DISPLAYSURF, F"FPS: {round(FramePerSec.get_fps(), 1)} ")
+            FPSPrinter.tprint(DISPLAYSURF, F"{'':25}mspt:{(time.perf_counter() - executionStopwatch)*1000:.0f} ")
+
+
+        # render frame
+        pygame.display.update()
+        needsRedraw = False
+    FramePerSec.tick(FPS)
