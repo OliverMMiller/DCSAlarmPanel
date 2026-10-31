@@ -575,7 +575,7 @@ MQTT_Client.on_disconnect = on_disconnect
 
 
 # 4. Establish Connection to MQTT Broker
-BROKER_IP = "NTC-Operations-Room-PI"#"127.0.0.1"
+BROKER_IP = "127.0.0.1"#"NTC-Helm-Station-PI"
 BROKER_PORT = 1883
 KEEP_ALIVE_SECONDS = 60
 reattemptConnectionTime: float = 30.0

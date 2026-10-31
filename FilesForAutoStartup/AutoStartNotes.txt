@@ -23,12 +23,17 @@ sudo reboot
 
 
 # ssh:
+ssh donfigol@NTC-Helm-Station-PI
 ssh donfigol@NTC-Instructor-Station-PI
 ssh donfigol@NTC-Operations-Room-PI
 
 #Hostames
+NTC-Helm-Station-PI
 NTC-Instructor-Station-PI
 NTC-Operations-Room-PI
+
+#Backup network:
+ShipSim-Alarm-Backup
 
 # kill and rerun startup script:
 pkill -f "python3.*InstructorStation"
