@@ -2,10 +2,11 @@
 git clone https://github.com/OliverMMiller/DCSAlarmPanel
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/StartPanel.sh /home/donfigol/Desktop/
 chmod +x /home/donfigol/Desktop/StartPanel.sh
-#mkdir -p ~/.config/autostart
+mkdir -p ~/.config/autostart
 mv /home/donfigol/DCSAlarmPanel/FilesForAutoStartup/Panel.desktop ~/.config/autostart/
 chmod 755 ~/.config/autostart/Panel.desktop
 
+cd DCSAlarmPanel
 python -m venv env
 source env/bin/activate
 pip install -r requirements.txt
@@ -32,18 +33,24 @@ NTC-Helm-Station-PI
 NTC-Instructor-Station-PI
 NTC-Operations-Room-PI
 
+# Operations and Instructor connect to the Helm broker at 192.168.1.162.
+# Reserve this address for the Helm Pi in the router's DHCP settings.
+
 #Backup network:
 ShipSim-Alarm-Backup
 
 # kill and rerun startup script:
-pkill -f "python3.*InstructorStation"
-sleep 2
-DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
-
 pkill -f "python3.*HelmStation"
 sleep 2
 DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
+pkill -f "python3.*InstructorStation"
+sleep 2
+DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
+
+pkill -f "python3.*OperationsStation"
+sleep 2
+DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
 
 # if not starting on boot, manually test:
 DISPLAY=:0 XAUTHORITY=/home/donfigol/.Xauthority /home/donfigol/Desktop/StartPanel.sh
@@ -60,6 +67,7 @@ nano ~/.config/autostart/Panel.desktop
 OliversButtonModule.py
 python3 /home/donfigol/DCSAlarmPanel/HelmStation.py
 python3 /home/donfigol/DCSAlarmPanel/InstructorStation.py
+python3 /home/donfigol/DCSAlarmPanel/OperationsStation.py
 /home/donfigol/DCSAlarmPanel/FilesForAutoStartup
 
 
@@ -81,14 +89,14 @@ vcgencmd measure_temp
 
 
 # view log
-tail /home/donfigol/DCSAlarmPanel/ServiceLog.log
-tail /home/donfigol/DCSAlarmPanel/MQTTlog.log
-tail /home/donfigol/DCSAlarmPanel/panelLog.log
+tail -n20 /home/donfigol/DCSAlarmPanel/ServiceLog.log
+tail -n20 /home/donfigol/DCSAlarmPanel/MQTTlog.log
+tail -n20 /home/donfigol/DCSAlarmPanel/panelLog.log
 
 # follow log in real-time:
-tail -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
-tail -f /home/donfigol/DCSAlarmPanel/MQTTlog.log
-tail -f /home/donfigol/DCSAlarmPanel/panelLog.log
+tail -n20 -f /home/donfigol/DCSAlarmPanel/ServiceLog.log
+tail -n20 -f /home/donfigol/DCSAlarmPanel/MQTTlog.log
+tail -n20 -f /home/donfigol/DCSAlarmPanel/panelLog.log
 
 #windows powershell version
     Get-Content MQTTlog.log -Tail 5 -Wait
@@ -127,6 +135,11 @@ ShipSim/FixesTimer
   "RequestMuted": true,
   "Sync": false
 }
+
+
+sudo systemctl restart mosquitto
+sudo systemctl status mosquitto
+
 
 #auto generate requirements.txt:
 pip freeze > requirements.txt
