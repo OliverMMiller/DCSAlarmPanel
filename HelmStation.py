@@ -412,7 +412,7 @@ def on_subscribe(client, userdata, mid, reason_code_list, properties=None):
 
 def on_message(client, userdata, msg):
     """Triggered automatically whenever a message arrives on a subscribed topic."""
-    MQTTLogger.info(
+    MQTTLogger.debug(
         "Received %s -> %s",
         msg.topic,
         msg.payload.decode("utf-8", errors="replace"),
