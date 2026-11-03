@@ -364,7 +364,7 @@ buttonSpacing = 60
 
 bottomButtonX = buttonSpacing*2
 bottomButtonWidth = SCREEN_WIDTH - bottomButtonX*2
-bottomButtonHeight = 225
+bottomButtonHeight = 265
 
 alarmButtonWidth = int((SCREEN_WIDTH - 5*buttonSpacing) / 2.6 )
 alarmButtonHeight = int(buttonSpacing * 5)
