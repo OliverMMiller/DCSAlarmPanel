@@ -27,7 +27,7 @@ pygame.mixer.init()
 
 # Setting up screen
 SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1200
+SCREEN_HEIGHT = 1080
 DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), (pygame.FULLSCREEN | pygame.SCALED ))  # | pygame.NOFRAME  pygame.RESIZABLE
 myProgramName = "DCS Alarm Operations Panel"
 pygame.display.set_caption(myProgramName)
@@ -402,7 +402,7 @@ buttonSpacing = 60
 
 
 alarmButtonWidth = int((SCREEN_WIDTH - 5*buttonSpacing) / 2 )
-alarmButtonHeight = int((SCREEN_WIDTH - 5*buttonSpacing) / 2.5 )
+alarmButtonHeight = int((SCREEN_WIDTH - 5*buttonSpacing) / 2.8 )
 alarmButtonY = int(SCREEN_HEIGHT - alarmButtonHeight - buttonSpacing*2)
 
 topButtonY = 2*buttonSpacing
